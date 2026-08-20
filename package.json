@@ -4,7 +4,7 @@
   "description": "He thong Quan ly Hoc tap (LMS) - Danh muc > Khoa hoc > Chuong > Bai > Tai nguyen",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node scripts/bootstrap.js && node server.js",
     "migrate": "node scripts/migrate.js",
     "seed": "node scripts/seed.js"
   },
