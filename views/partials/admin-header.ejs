@@ -8,55 +8,57 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="/css/style.css" rel="stylesheet">
   <style>
-    .admin-classroom-link{background:linear-gradient(135deg,#ff6b1a,#ff8a3d)!important;color:#fff!important;border-radius:10px;margin:8px 10px;padding:11px 12px!important;font-weight:800;box-shadow:0 6px 18px rgba(255,107,26,.22)}
+    .admin-section-title{margin-top:18px!important;margin-bottom:5px;color:#94a3b8;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase}
+    .admin-sub{padding-left:32px!important;font-size:12px!important;color:#aeb8ca!important}
+    .admin-sub:hover,.admin-sub.active{color:#fff!important;background:rgba(255,255,255,.07)!important}
+    .admin-classroom-link{background:linear-gradient(135deg,#ff6b1a,#ff8a3d)!important;color:#fff!important;border-radius:10px;margin:6px 10px;padding:11px 12px!important;font-weight:800;box-shadow:0 6px 18px rgba(255,107,26,.22)}
     .admin-classroom-link:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(255,107,26,.3)}
+    .admin-primary{font-weight:700}
   </style>
 </head>
 <body>
 <div class="admin-wrap">
   <div class="admin-sidebar py-3">
     <div class="px-3 mb-3 text-white fw-bold fs-5"><%= site.site_name_1 %><span style="color:var(--orange)"><%= site.site_name_2 %></span> <span class="fw-normal fs-6 opacity-75">Admin</span></div>
+
+    <div class="admin-section-title">Tổng quan</div>
     <a href="/admin" class="<%= path === '/admin' ? 'active' : '' %>"><i class="fa-solid fa-chart-line me-2"></i>Dashboard</a>
 
-    <div class="section-title">📚 Nội dung học tập</div>
-    <a href="/admin/danh-muc" class="<%= path.startsWith('/admin/danh-muc') ? 'active' : '' %>"><i class="fa-solid fa-sitemap me-2"></i>Danh mục</a>
-    <a href="/admin/khoa-hoc" class="<%= path.startsWith('/admin/khoa-hoc') ? 'active' : '' %>"><i class="fa-solid fa-book-open me-2"></i>Khóa học / Chương / Bài / Video</a>
-    <a href="/admin/sach" class="<%= path === '/admin/sach' || path.startsWith('/admin/sach/them') || path.match(/^\/admin\/sach\/\d+/) ? 'active' : '' %>"><i class="fa-solid fa-book me-2"></i>Sách (bán/tải file)</a>
-    <a href="/admin/doc-sach-online" class="<%= path.startsWith('/admin/doc-sach-online') && !path.startsWith('/admin/doc-sach-online/danh-muc') ? 'active' : '' %>"><i class="fa-solid fa-book-open-reader me-2"></i>Đọc sách online</a>
-    <a href="/admin/doc-sach-online/danh-muc" class="<%= path.startsWith('/admin/doc-sach-online/danh-muc') ? 'active' : '' %>"><i class="fa-solid fa-sitemap me-2"></i>Danh mục đọc sách online</a>
-    <a href="/admin/sach/danh-muc" class="<%= path.startsWith('/admin/sach/danh-muc') ? 'active' : '' %>"><i class="fa-solid fa-sitemap me-2"></i>Danh mục sách</a>
-    <a href="/admin/sach/loai" class="<%= path === '/admin/sach/loai' ? 'active' : '' %>"><i class="fa-solid fa-tags me-2"></i>Thể loại sách</a>
+    <div class="admin-section-title">Dạy học & lớp học</div>
+    <a href="/admin/khoa-hoc" class="admin-primary <%= path.startsWith('/admin/khoa-hoc') ? 'active' : '' %>"><i class="fa-solid fa-graduation-cap me-2"></i>Khóa học</a>
+    <a href="/admin/danh-muc" class="admin-sub <%= path.startsWith('/admin/danh-muc') ? 'active' : '' %>"><i class="fa-solid fa-sitemap me-2"></i>Danh mục khóa học</a>
+    <a href="/admin/phong-hoc" class="admin-classroom-link <%= path.startsWith('/admin/phong-hoc') ? 'active' : '' %>"><i class="fa-solid fa-chalkboard-user me-2"></i>Phòng học trực tuyến</a>
+    <a href="/phong-hoc" target="_blank" rel="noopener" class="admin-sub"><i class="fa-solid fa-arrow-up-right-from-square me-2"></i>Xem phòng đang mở</a>
+    <a href="/admin/phong-thi" class="admin-primary <%= path.startsWith('/admin/phong-thi') || path.startsWith('/admin/bai-kiem-tra') ? 'active' : '' %>"><i class="fa-solid fa-file-pen me-2"></i>Kiểm tra & phòng thi</a>
 
-    <div class="section-title" style="margin-top:18px">🎥 PHÒNG HỌC TRỰC TUYẾN</div>
-    <a href="/admin/phong-hoc" class="admin-classroom-link <%= path.startsWith('/admin/phong-hoc') ? 'active' : '' %>"><i class="fa-solid fa-chalkboard-user me-2"></i>Quản lý phòng học</a>
-    <a href="/phong-hoc" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square me-2"></i>Xem phòng đang mở</a>
+    <div class="admin-section-title">Thư viện & sách</div>
+    <a href="/admin/sach" class="admin-primary <%= path === '/admin/sach' || path.startsWith('/admin/sach/them') || path.match(/^\/admin\/sach\/\d+/) ? 'active' : '' %>"><i class="fa-solid fa-book me-2"></i>Sách bán / tải file</a>
+    <a href="/admin/sach/danh-muc" class="admin-sub <%= path.startsWith('/admin/sach/danh-muc') ? 'active' : '' %>"><i class="fa-solid fa-folder-tree me-2"></i>Danh mục sách</a>
+    <a href="/admin/sach/loai" class="admin-sub <%= path === '/admin/sach/loai' ? 'active' : '' %>"><i class="fa-solid fa-tags me-2"></i>Thể loại sách</a>
+    <a href="/admin/doc-sach-online" class="admin-primary <%= path.startsWith('/admin/doc-sach-online') && !path.startsWith('/admin/doc-sach-online/danh-muc') ? 'active' : '' %>"><i class="fa-solid fa-book-open-reader me-2"></i>Đọc sách online</a>
+    <a href="/admin/doc-sach-online/danh-muc" class="admin-sub <%= path.startsWith('/admin/doc-sach-online/danh-muc') ? 'active' : '' %>"><i class="fa-solid fa-folder-tree me-2"></i>Danh mục đọc sách</a>
 
-    <div class="section-title">📝 KIỂM TRA</div>
-    <a href="/admin/phong-thi" class="<%= path.startsWith('/admin/phong-thi') || path.startsWith('/admin/bai-kiem-tra') ? 'active' : '' %>"><i class="fa-solid fa-user-graduate me-2"></i>Thực chiến phòng thi</a>
+    <div class="admin-section-title">Học viên</div>
+    <a href="/admin/hoc-vien" class="admin-primary <%= path.startsWith('/admin/hoc-vien') ? 'active' : '' %>"><i class="fa-solid fa-users me-2"></i>Danh sách học viên</a>
 
-    <div class="section-title">👨‍🎓 Học viên</div>
-    <a href="/admin/hoc-vien" class="<%= path.startsWith('/admin/hoc-vien') ? 'active' : '' %>"><i class="fa-solid fa-users me-2"></i>Danh sách học viên</a>
+    <div class="admin-section-title">Kinh doanh</div>
+    <a href="/admin/don-hang" class="admin-primary <%= path.startsWith('/admin/don-hang') ? 'active' : '' %>"><i class="fa-solid fa-receipt me-2"></i>Đơn hàng</a>
+    <a href="/admin/ma-kich-hoat" class="admin-primary <%= path.startsWith('/admin/ma-kich-hoat') ? 'active' : '' %>"><i class="fa-solid fa-key me-2"></i>Mã kích hoạt</a>
 
-    <div class="section-title">💳 Thanh toán</div>
-    <a href="/admin/don-hang" class="<%= path.startsWith('/admin/don-hang') ? 'active' : '' %>"><i class="fa-solid fa-receipt me-2"></i>Đơn hàng</a>
-    <a href="/admin/ma-kich-hoat" class="<%= path.startsWith('/admin/ma-kich-hoat') ? 'active' : '' %>"><i class="fa-solid fa-key me-2"></i>Mã kích hoạt</a>
-
-    <div class="section-title">🎨 Giao diện &amp; Marketing</div>
+    <div class="admin-section-title">Website & nội dung truyền thông</div>
     <a href="/admin/banner" class="<%= path.startsWith('/admin/banner') ? 'active' : '' %>"><i class="fa-solid fa-image me-2"></i>Banner</a>
-    <a href="/admin/popup" class="<%= path.startsWith('/admin/popup') ? 'active' : '' %>"><i class="fa-solid fa-window-restore me-2"></i>Popup quảng cáo</a>
-    <a href="/admin/menu" class="<%= path.startsWith('/admin/menu') ? 'active' : '' %>"><i class="fa-solid fa-bars me-2"></i>Menu điều hướng</a>
+    <a href="/admin/popup" class="<%= path.startsWith('/admin/popup') ? 'active' : '' %>"><i class="fa-solid fa-window-restore me-2"></i>Popup</a>
     <a href="/admin/tin-tuc" class="<%= path.startsWith('/admin/tin-tuc') ? 'active' : '' %>"><i class="fa-solid fa-newspaper me-2"></i>Tin tức</a>
+    <a href="/admin/menu" class="<%= path.startsWith('/admin/menu') ? 'active' : '' %>"><i class="fa-solid fa-bars me-2"></i>Menu website</a>
 
-    <div class="section-title">💾 Dữ liệu & sao lưu</div>
-    <a href="/admin/du-lieu" class="<%= path.startsWith('/admin/du-lieu') ? 'active' : '' %>"><i class="fa-solid fa-database me-2"></i>Xuất / nhập dữ liệu</a>
-
-    <div class="section-title">⚙ Cài đặt hệ thống</div>
-    <a href="/admin/cai-dat/chung" class="<%= path === '/admin/cai-dat/chung' ? 'active' : '' %>"><i class="fa-solid fa-gear me-2"></i>Cài đặt chung (chữ trên web)</a>
-    <a href="/admin/cai-dat/ai" class="<%= path === '/admin/cai-dat/ai' ? 'active' : '' %>"><i class="fa-solid fa-robot me-2"></i>Cài đặt AI (nhập đề từ file)</a>
+    <div class="admin-section-title">Hệ thống</div>
+    <a href="/admin/cai-dat/chung" class="<%= path === '/admin/cai-dat/chung' ? 'active' : '' %>"><i class="fa-solid fa-gear me-2"></i>Cài đặt chung</a>
+    <a href="/admin/cai-dat/ai" class="<%= path === '/admin/cai-dat/ai' ? 'active' : '' %>"><i class="fa-solid fa-robot me-2"></i>AI & nhập đề</a>
     <a href="/admin/cai-dat/thanh-toan" class="<%= path.startsWith('/admin/cai-dat/thanh-toan') ? 'active' : '' %>"><i class="fa-solid fa-money-check-dollar me-2"></i>Cài đặt thanh toán</a>
-    <a href="/admin/nhan-su" class="<%= path.startsWith('/admin/nhan-su') ? 'active' : '' %>"><i class="fa-solid fa-user-shield me-2"></i>Nhân sự &amp; phân quyền</a>
+    <a href="/admin/du-lieu" class="<%= path.startsWith('/admin/du-lieu') ? 'active' : '' %>"><i class="fa-solid fa-database me-2"></i>Dữ liệu & sao lưu</a>
+    <a href="/admin/nhan-su" class="<%= path.startsWith('/admin/nhan-su') ? 'active' : '' %>"><i class="fa-solid fa-user-shield me-2"></i>Nhân sự & phân quyền</a>
 
-    <div class="section-title">👤 Tài khoản</div>
+    <div class="admin-section-title">Tài khoản</div>
     <a href="/admin/doi-mat-khau" class="<%= path.startsWith('/admin/doi-mat-khau') ? 'active' : '' %>"><i class="fa-solid fa-lock me-2"></i>Đổi mật khẩu</a>
     <a href="/admin/dang-xuat" class="text-danger"><i class="fa-solid fa-right-from-bracket me-2"></i>Đăng xuất</a>
   </div>
