@@ -51,7 +51,39 @@
         });
       }
     }
+
+    // Giáo viên chủ động bật/tắt chế độ Hỏi giáo viên.
+    let questionMode=localStorage.getItem('vaohocnao_question_'+C.room)!=='off';
+    if(C.isTeacher){
+      const qm=document.getElementById('questionModeManager');
+      if(qm){
+        qm.innerHTML='<div class="small fw-bold mb-2">❓ Hỏi giáo viên</div><label class="d-flex align-items-center gap-2 small"><input id="questionModeToggle" type="checkbox"> Cho học viên đặt câu hỏi</label>';
+        const toggle=document.getElementById('questionModeToggle');toggle.checked=questionMode;
+        toggle.onchange=()=>{questionMode=toggle.checked;localStorage.setItem('vaohocnao_question_'+C.room,questionMode?'on':'off');socket.emit('classroom:question-mode',{enabled:questionMode})};
+        socket.emit('classroom:question-mode',{enabled:questionMode});
+      }
+    }
+    socket.on('classroom:question-mode',({enabled})=>{questionMode=!!enabled;updateQuestionBox(questionMode)});
+    socket.on('classroom:question',p=>{
+      if(!C.isTeacher)return;
+      const box=document.getElementById('chatMessages');
+      if(box){const d=document.createElement('div');d.className='chat-msg';d.innerHTML='<b></b><span></span>';d.querySelector('b').textContent='❓ '+(p.user||'Học viên');d.querySelector('span').textContent=p.text||'';box.appendChild(d);box.scrollTop=box.scrollHeight;}
+      markChatUnread();
+    });
+    document.getElementById('questionForm')?.addEventListener('submit',e=>{
+      e.preventDefault();const input=document.getElementById('questionInput');const text=input?.value.trim();if(!text)return;
+      socket.emit('classroom:question',{user:C.currentUser||'Học viên',userId:C.currentUserId,text});input.value='';
+      document.querySelector('[data-panel="chat"]')?.click();
+    });
+    socket.on('classroom:chat',m=>{if(m.senderId===socket.id)return;markChatUnread()});
+
     setWritable(canWrite);
+  }
+  function updateQuestionBox(enabled){const box=document.getElementById('questionBox');if(box&&!C.isTeacher)box.classList.toggle('d-none',!enabled)}
+  function markChatUnread(){
+    const panel=document.getElementById('panel-chat');const badge=document.getElementById('chatBadge');
+    if(!panel||!badge||panel.classList.contains('active'))return;
+    const n=(Number(badge.textContent)||0)+1;badge.textContent=n;badge.classList.remove('d-none');
   }
   function escapeHtml(v){const d=document.createElement('div');d.textContent=v;return d.innerHTML;}
   window.io=function(...args){const socket=originalIo(...args);window.classroomSocket=socket;setTimeout(()=>init(socket),0);return socket};
