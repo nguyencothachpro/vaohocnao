@@ -12,12 +12,14 @@
 <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
   <div class="container">
     <a class="navbar-brand" href="/"><%= site.site_name_1 %><span class="brand-accent"><%= site.site_name_2 %></span></a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav1">
-      <span class="navbar-toggler-icon"></span>
-    </button>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav1"><span class="navbar-toggler-icon"></span></button>
     <div class="collapse navbar-collapse" id="nav1">
       <ul class="navbar-nav me-auto ms-3">
         <li class="nav-item"><a class="nav-link" href="/">Trang chủ</a></li>
+        <li class="nav-item"><a class="nav-link fw-semibold" href="/khoa-hoc">Khóa học</a></li>
+        <li class="nav-item"><a class="nav-link fw-semibold" href="/sach">Sách</a></li>
+        <li class="nav-item"><a class="nav-link fw-semibold text-primary" href="/phong-hoc"><i class="fa-solid fa-chalkboard-user me-1"></i>Phòng học</a></li>
+        <li class="nav-item"><a class="nav-link fw-semibold" href="/doc-sach-online">Đọc sách</a></li>
         <% navItems.forEach(item => { %>
           <li class="nav-item"><a class="nav-link" href="<%= item.url %>"><%= item.label %></a></li>
         <% }) %>
@@ -26,21 +28,14 @@
         <% if (typeof currentUser !== 'undefined' && currentUser) { %>
           <li class="nav-item"><a class="nav-link" href="/gio-hang" title="Giỏ hàng"><i class="fa-solid fa-cart-shopping"></i></a></li>
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown">
-              <img src="<%= currentUser.avatar_url || '/img/placeholder.svg' %>" width="28" height="28" class="rounded-circle" style="object-fit:cover">
-              <%= currentUser.name %>
-            </a>
+            <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown"><img src="<%= currentUser.avatar_url || '/img/placeholder.svg' %>" width="28" height="28" class="rounded-circle" style="object-fit:cover"><%= currentUser.name %></a>
             <ul class="dropdown-menu dropdown-menu-end">
               <li><a class="dropdown-item" href="/tai-khoan">Khóa học của tôi</a></li>
               <li><a class="dropdown-item" href="/tai-khoan/tu-sach">Tủ sách của tôi</a></li>
               <li><a class="dropdown-item" href="/tai-khoan/doc-sach-online-da-mua">Sách đọc online đã mua</a></li>
               <li><a class="dropdown-item" href="/tai-khoan/bai-duoc-giao">Bài được giao</a></li>
-              <li><a class="dropdown-item" href="/tai-khoan/chung-chi">Chứng chỉ</a></li>
-              <li><a class="dropdown-item" href="/cong-dong">Cộng đồng</a></li>
               <li><a class="dropdown-item" href="/kich-hoat">Nhập mã kích hoạt</a></li>
-              <li><a class="dropdown-item" href="/tai-khoan/doi-mat-khau">Đổi mật khẩu</a></li>
-              <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item text-danger" href="/dang-xuat">Đăng xuất</a></li>
+              <li><hr class="dropdown-divider"></li><li><a class="dropdown-item text-danger" href="/dang-xuat">Đăng xuất</a></li>
             </ul>
           </li>
         <% } else { %>
