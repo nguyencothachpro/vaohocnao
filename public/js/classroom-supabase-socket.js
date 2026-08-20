@@ -4,6 +4,7 @@
   const C = window.CLASSROOM || {};
   const handlers = new Map();
   const pending = [];
+  const grants = new Set();
   const clientId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now());
 
   const socket = {
@@ -36,6 +37,8 @@
   let joined = false;
   let selfInfo = { id: clientId, userId: C.currentUserId || null, user: C.currentUser || 'Thành viên', role: C.isTeacher ? 'teacher' : 'student' };
 
+  function userKey(id) { return id == null ? '' : String(id); }
+
   async function getConfig() {
     const r = await fetch('/api/realtime-config', { credentials: 'same-origin', cache: 'no-store' });
     if (!r.ok) throw new Error('Không lấy được cấu hình realtime');
@@ -48,7 +51,7 @@
     if (!channel) return [];
     const state = channel.presenceState();
     const list = [];
-    Object.keys(state || {}).forEach(key => (state[key] || []).forEach(item => list.push(item)));
+    Object.keys(state || {}).forEach(key => (state[key] || []).forEach(item => list.push({ ...item, canWrite: C.isTeacher ? item.role === 'teacher' : grants.has(userKey(item.userId)) })));
     return list;
   }
 
@@ -56,6 +59,14 @@
     const list = presenceList();
     fire('classroom:presence', { count: list.length });
     fire('classroom:presence-list', list);
+  }
+
+  function applyGrant(userId, allow) {
+    const key = userKey(userId);
+    if (!key) return;
+    if (allow) grants.add(key); else grants.delete(key);
+    if (C.currentUserId && userKey(C.currentUserId) === key) fire('classroom:write-status', { userId, allow });
+    syncPresence();
   }
 
   async function setupChannel(room) {
@@ -71,7 +82,10 @@
     channel.on('presence', { event: 'sync' }, syncPresence);
     channel.on('presence', { event: 'join' }, ({ newPresences }) => {
       syncPresence();
-      (newPresences || []).forEach(p => { if (p.id !== clientId) fire('classroom:peer-joined', p); });
+      (newPresences || []).forEach(p => {
+        if (p.id !== clientId) fire('classroom:peer-joined', p);
+        if (C.isTeacher && grants.size) send('classroom:permissions-state', { grants: Array.from(grants) });
+      });
     });
     channel.on('presence', { event: 'leave' }, ({ leftPresences }) => {
       syncPresence();
@@ -82,13 +96,21 @@
       'classroom:board', 'classroom:clear', 'classroom:page', 'classroom:material-open',
       'classroom:chat', 'classroom:teacher-stream', 'classroom:request-stream',
       'classroom:write-request', 'classroom:write-grant', 'classroom:write-revoke-all',
-      'classroom:write-status', 'classroom:permissions', 'classroom:question-mode',
-      'classroom:question', 'webrtc:offer', 'webrtc:answer', 'webrtc:ice'
+      'classroom:write-status', 'classroom:permissions', 'classroom:permissions-state',
+      'classroom:question-mode', 'classroom:question', 'webrtc:offer', 'webrtc:answer', 'webrtc:ice'
     ];
     events.forEach(event => channel.on('broadcast', { event }, ({ payload }) => {
       if (!payload || payload.senderId === clientId) return;
       if (event === 'webrtc:offer' || event === 'webrtc:answer' || event === 'webrtc:ice') {
         if (payload.to && payload.to !== clientId) return;
+      }
+      if (event === 'classroom:write-status') applyGrant(payload.userId, payload.allow);
+      if (event === 'classroom:write-revoke-all') { grants.clear(); if (!C.isTeacher) fire('classroom:write-revoke-all'); syncPresence(); }
+      if (event === 'classroom:permissions-state') {
+        grants.clear();
+        (payload.grants || []).forEach(id => grants.add(userKey(id)));
+        if (C.currentUserId) fire('classroom:write-status', { userId: C.currentUserId, allow: grants.has(userKey(C.currentUserId)) });
+        syncPresence();
       }
       fire(event, payload);
     }));
@@ -132,10 +154,8 @@
 
   function send(event, payload) {
     if (!channel) return;
-    channel.send({
-      type: 'broadcast', event,
-      payload: { ...payload, senderId: clientId, senderUserId: selfInfo.userId, senderUser: selfInfo.user }
-    }).catch(e => console.error('[classroom realtime send]', event, e));
+    channel.send({ type: 'broadcast', event, payload: { ...payload, senderId: clientId, senderUserId: selfInfo.userId, senderUser: selfInfo.user } })
+      .catch(e => console.error('[classroom realtime send]', event, e));
   }
 
   function routeEmit(event, payload = {}) {
@@ -144,8 +164,11 @@
       return send(event, payload);
     }
     if (event === 'classroom:write-request') return send(event, { userId: payload.userId || selfInfo.userId, user: payload.user || selfInfo.user });
-    if (event === 'classroom:write-grant') return send('classroom:write-status', payload);
-    if (event === 'classroom:write-revoke-all') return send(event, {});
+    if (event === 'classroom:write-grant') {
+      applyGrant(payload.userId, payload.allow);
+      return send('classroom:write-status', payload);
+    }
+    if (event === 'classroom:write-revoke-all') { grants.clear(); syncPresence(); return send(event, {}); }
     return send(event, payload);
   }
 
