@@ -4,7 +4,10 @@ const path = require('path');
 const db = require('../config/db');
 
 async function tableExists(client, table) {
-  const r = await client.query(`SELECT to_regclass(format('%I.%I', current_schema(), $1)) IS NOT NULL AS exists`, [table]);
+  const r = await client.query(
+    `SELECT to_regclass(format('%I.%I', current_schema(), $1::text)) IS NOT NULL AS exists`,
+    [table]
+  );
   return !!r.rows[0]?.exists;
 }
 
@@ -24,43 +27,33 @@ async function columnType(client, table, column) {
 }
 
 async function dropForeignKeysBetween(client, childTable, parentTable) {
-  await client.query(`
-    DO $$
-    DECLARE r record;
-    BEGIN
-      IF to_regclass(format('%I.%I', current_schema(), $1)) IS NULL THEN
-        RETURN;
-      END IF;
-      FOR r IN
-        SELECT conname
-        FROM pg_constraint
-        WHERE conrelid = format('%I.%I', current_schema(), $1)::regclass
-          AND confrelid = format('%I.%I', current_schema(), $2)::regclass
-          AND contype = 'f'
-      LOOP
-        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', $1, r.conname);
-      END LOOP;
-    END $$;
+  const r = await client.query(`
+    SELECT conname
+    FROM pg_constraint
+    WHERE conrelid = to_regclass(format('%I.%I', current_schema(), $1::text))
+      AND confrelid = to_regclass(format('%I.%I', current_schema(), $2::text))
+      AND contype = 'f'
   `, [childTable, parentTable]);
+  for (const row of r.rows) {
+    await client.query(`ALTER TABLE ${quoteIdent(childTable)} DROP CONSTRAINT ${quoteIdent(row.conname)}`);
+  }
 }
 
-async function ensureSimpleFK(client, childTable, childColumn, parentTable, parentColumn, constraintName) {
-  await client.query(`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1
-        FROM pg_constraint
-        WHERE conname = $1
-          AND conrelid = format('%I.%I', current_schema(), $2)::regclass
-      ) THEN
-        EXECUTE format(
-          'ALTER TABLE %I ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES %I(%I) ON DELETE CASCADE',
-          $2, $1, $3, $4, $5
-        );
-      END IF;
-    END $$;
-  `, [constraintName, childTable, childColumn, parentTable, parentColumn]);
+function quoteIdent(value) {
+  return '"' + String(value).replace(/"/g, '""') + '"';
+}
+
+async function ensureSimpleFK(client, childTable, childColumn, parentTable, parentColumn, constraintName, onDelete = 'CASCADE') {
+  const exists = await client.query(`
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = $1
+      AND conrelid = to_regclass(format('%I.%I', current_schema(), $2::text))
+    LIMIT 1
+  `, [constraintName, childTable]);
+  if (exists.rows.length) return;
+
+  await client.query(`ALTER TABLE ${quoteIdent(childTable)} ADD CONSTRAINT ${quoteIdent(constraintName)} FOREIGN KEY (${quoteIdent(childColumn)}) REFERENCES ${quoteIdent(parentTable)}(${quoteIdent(parentColumn)}) ON DELETE ${onDelete}`);
 }
 
 async function migrate() {
@@ -68,8 +61,7 @@ async function migrate() {
   try {
     await client.query('BEGIN');
 
-    // Parent tables first. This makes the migration safe against a legacy DB
-    // whose tables were created in an incompatible order.
+    // Base parent table first.
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -88,10 +80,8 @@ async function migrate() {
 
     const usersIdType = (await columnType(client, 'users', 'id')) || 'integer';
 
-    // Normalize the legacy login_logs table without ever relying on
-    // CREATE TABLE IF NOT EXISTS to repair an existing column definition.
-    const loginLogsExists = await tableExists(client, 'login_logs');
-    if (!loginLogsExists) {
+    // Normalize login_logs against the existing users.id type.
+    if (!await tableExists(client, 'login_logs')) {
       await client.query(`
         CREATE TABLE login_logs (
           id SERIAL PRIMARY KEY,
@@ -107,20 +97,12 @@ async function migrate() {
       if (!childType) {
         await client.query(`ALTER TABLE login_logs ADD COLUMN user_id ${usersIdType}`);
       } else if (childType !== usersIdType) {
-        // Preserve existing values; normal user IDs are integer-range.
-        await client.query(`
-          ALTER TABLE login_logs
-          ALTER COLUMN user_id TYPE ${usersIdType}
-          USING NULLIF(user_id::text, '')::${usersIdType}
-        `);
+        await client.query(`ALTER TABLE login_logs ALTER COLUMN user_id TYPE ${usersIdType} USING NULLIF(user_id::text, '')::${usersIdType}`);
       }
     }
     await client.query(`ALTER TABLE login_logs ALTER COLUMN user_id SET NOT NULL`);
     await ensureSimpleFK(client, 'login_logs', 'user_id', 'users', 'id', 'login_logs_user_id_fkey');
 
-    // Read and apply the original LMS schema statement-by-statement. Legacy
-    // databases may contain tables with mismatched FK types, so normalize
-    // common FK pairs BEFORE PostgreSQL attempts to recreate their constraints.
     const schemaPath = path.join(__dirname, 'schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf8');
     const statements = schema
@@ -128,8 +110,6 @@ async function migrate() {
       .map(s => s.trim())
       .filter(Boolean);
 
-    // Reorder the statements roughly by dependency level to avoid creating
-    // child tables before their parents on a fresh DB.
     const rank = (s) => {
       const x = s.replace(/\s+/g, ' ').trim().toLowerCase();
       if (x.includes('create table if not exists users')) return 0;
@@ -139,7 +119,6 @@ async function migrate() {
       if (x.includes('create table if not exists lessons')) return 4;
       if (x.includes('create table if not exists books')) return 2;
       if (x.includes('create table if not exists online_books')) return 2;
-      if (x.includes('create table if not exists banners')) return 2;
       return 10;
     };
     statements.sort((a, b) => rank(a) - rank(b));
@@ -148,12 +127,9 @@ async function migrate() {
       const statement = raw.endsWith(';') ? raw : `${raw};`;
       const normalized = statement.replace(/\s+/g, ' ').trim().toLowerCase();
 
-      // users/login_logs are already created/normalized above.
       if (normalized.includes('create table if not exists users')) continue;
       if (normalized.includes('create table if not exists login_logs')) continue;
 
-      // Normalize known legacy FK targets before CREATE TABLE for existing DBs.
-      // categories.parent_id -> categories.id
       if (normalized.includes('create table if not exists categories')) {
         await client.query(statement);
         const idType = (await columnType(client, 'categories', 'id')) || 'integer';
@@ -162,12 +138,14 @@ async function migrate() {
           await dropForeignKeysBetween(client, 'categories', 'categories');
           await client.query(`ALTER TABLE categories ALTER COLUMN parent_id TYPE ${idType} USING NULLIF(parent_id::text, '')::${idType}`);
         }
+        if (await columnType(client, 'categories', 'parent_id')) {
+          await ensureSimpleFK(client, 'categories', 'parent_id', 'categories', 'id', 'categories_parent_id_fkey', 'CASCADE');
+        }
         continue;
       }
 
-      // courses.category_id -> categories.id / teacher_id -> users.id
       if (normalized.includes('create table if not exists courses')) {
-        // Ensure categories parent exists before this CREATE.
+        // Ensure categories exists with a compatible shape first.
         await client.query(`
           CREATE TABLE IF NOT EXISTS categories (
             id SERIAL PRIMARY KEY,
@@ -179,10 +157,13 @@ async function migrate() {
             created_at TIMESTAMPTZ DEFAULT now()
           );
         `);
+        if (!await columnType(client, 'categories', 'id')) throw new Error('categories.id is missing');
+        const categoryIdType = await columnType(client, 'categories', 'id');
+
         await client.query(`
           CREATE TABLE IF NOT EXISTS courses (
             id SERIAL PRIMARY KEY,
-            category_id INTEGER,
+            category_id ${categoryIdType},
             teacher_id ${usersIdType},
             title TEXT NOT NULL,
             slug TEXT UNIQUE NOT NULL,
@@ -196,11 +177,27 @@ async function migrate() {
             created_at TIMESTAMPTZ DEFAULT now()
           );
         `);
+
+        await dropForeignKeysBetween(client, 'courses', 'categories');
+        await dropForeignKeysBetween(client, 'courses', 'users');
+
+        const courseCategoryType = await columnType(client, 'courses', 'category_id');
+        if (courseCategoryType && courseCategoryType !== categoryIdType) {
+          await client.query(`ALTER TABLE courses ALTER COLUMN category_id TYPE ${categoryIdType} USING NULLIF(category_id::text, '')::${categoryIdType}`);
+        }
+        const teacherType = await columnType(client, 'courses', 'teacher_id');
+        if (teacherType && teacherType !== usersIdType) {
+          await client.query(`ALTER TABLE courses ALTER COLUMN teacher_id TYPE ${usersIdType} USING NULLIF(teacher_id::text, '')::${usersIdType}`);
+        }
+
+        await ensureSimpleFK(client, 'courses', 'category_id', 'categories', 'id', 'courses_category_id_fkey', 'SET NULL');
+        await ensureSimpleFK(client, 'courses', 'teacher_id', 'users', 'id', 'courses_teacher_id_fkey', 'SET NULL');
         continue;
       }
 
-      // If an existing table triggers a FK mismatch, handle it explicitly for
-      // the common LMS child->parent pairs and then continue with the rest.
+      // Existing schemas can contain legacy tables with incompatible FK types.
+      // For the remaining statements, try normally and, on a known FK mismatch,
+      // normalize the specific child column to the referenced parent's ID type.
       try {
         await client.query(statement);
       } catch (err) {
@@ -209,24 +206,40 @@ async function migrate() {
         if (!match) throw err;
 
         const constraint = match[1];
-        const isCoursesCategory = constraint === 'courses_category_id_fkey';
-        if (isCoursesCategory && await tableExists(client, 'courses') && await tableExists(client, 'categories')) {
-          await dropForeignKeysBetween(client, 'courses', 'categories');
-          const parentType = (await columnType(client, 'categories', 'id')) || 'integer';
-          const childType = await columnType(client, 'courses', 'category_id');
-          if (!childType) {
-            await client.query(`ALTER TABLE courses ADD COLUMN category_id ${parentType}`);
-          } else if (childType !== parentType) {
-            await client.query(`ALTER TABLE courses ALTER COLUMN category_id TYPE ${parentType} USING NULLIF(category_id::text, '')::${parentType}`);
+        // Generic fallback: derive child/parent columns from pg_constraint and
+        // normalize the child column to the parent's referenced column type.
+        const meta = await client.query(`
+          SELECT
+            child.relname AS child_table,
+            parent.relname AS parent_table,
+            child_att.attname AS child_column,
+            parent_att.attname AS parent_column
+          FROM pg_constraint c
+          JOIN pg_class child ON child.oid = c.conrelid
+          JOIN pg_class parent ON parent.oid = c.confrelid
+          JOIN LATERAL unnest(c.conkey) WITH ORDINALITY ck(attnum, ord) ON true
+          JOIN LATERAL unnest(c.confkey) WITH ORDINALITY pk(attnum, ord) ON pk.ord = ck.ord
+          JOIN pg_attribute child_att ON child_att.attrelid = child.oid AND child_att.attnum = ck.attnum
+          JOIN pg_attribute parent_att ON parent_att.attrelid = parent.oid AND parent_att.attnum = pk.attnum
+          WHERE c.conname = $1
+          LIMIT 1
+        `, [constraint]);
+
+        if (meta.rows.length) {
+          const { child_table, parent_table, child_column, parent_column } = meta.rows[0];
+          const parentType = await columnType(client, parent_table, parent_column);
+          const childType = await columnType(client, child_table, child_column);
+          if (parentType && childType && parentType !== childType) {
+            await dropForeignKeysBetween(client, child_table, parent_table);
+            await client.query(`ALTER TABLE ${quoteIdent(child_table)} ALTER COLUMN ${quoteIdent(child_column)} TYPE ${parentType} USING NULLIF(${quoteIdent(child_column)}::text, '')::${parentType}`);
+            await ensureSimpleFK(client, child_table, child_column, parent_table, parent_column, constraint, 'CASCADE');
+            continue;
           }
-          await ensureSimpleFK(client, 'courses', 'category_id', 'categories', 'id', constraint);
-          continue;
         }
         throw err;
       }
     }
 
-    // Session store.
     await client.query(`
       CREATE TABLE IF NOT EXISTS "session" (
         "sid" varchar NOT NULL COLLATE "default",
