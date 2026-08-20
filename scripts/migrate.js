@@ -31,7 +31,6 @@ async function migrate() {
       const normalized = statement.replace(/\s+/g, ' ').trim().toLowerCase();
       if (!normalized || normalized.startsWith('--')) continue;
 
-<<<<<<< HEAD
       // Use a SAVEPOINT per statement: in Postgres, once any statement inside
       // a transaction fails, the WHOLE transaction is aborted and every
       // subsequent statement fails with "current transaction is aborted"
@@ -45,11 +44,6 @@ async function migrate() {
         await client.query('ROLLBACK TO SAVEPOINT stmt_sp');
         await client.query('RELEASE SAVEPOINT stmt_sp');
 
-=======
-      try {
-        await client.query(statement);
-      } catch (err) {
->>>>>>> 2aefeb1db4dfc07f29d345245b0b130620e30650
         const msg = String(err.message || '');
 
         // Existing-table compatibility issues are safe to skip because the
