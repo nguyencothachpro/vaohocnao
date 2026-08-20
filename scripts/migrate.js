@@ -57,6 +57,12 @@ async function migrate() {
           /column .* already exists/i.test(msg) ||
           /multiple primary keys for table/i.test(msg) ||
           /duplicate key value violates unique constraint/i.test(msg) ||
+          // A statement that depends on a table skipped above (e.g. a table
+          // whose CREATE failed because of a legacy FK type mismatch) will
+          // itself fail with "relation ... does not exist". That's an
+          // expected knock-on effect, not a new problem, so skip it too
+          // instead of letting it abort the whole migration.
+          /relation .* does not exist/i.test(msg) ||
           /already exists/i.test(msg);
 
         if (compatibilityError) {
