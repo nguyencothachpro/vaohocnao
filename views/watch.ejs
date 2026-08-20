@@ -1,0 +1,77 @@
+<% var pageTitle = lesson ? lesson.title : 'Khóa học' %>
+<%- include('partials/header') %>
+
+<% if (locked) { %>
+  <div class="text-center py-5">
+    <i class="fa-solid fa-lock fa-3x text-muted mb-3"></i>
+    <h4>Bài học này đã bị khóa</h4>
+    <p class="text-muted">Bạn cần đăng ký/kích hoạt khóa học <strong><%= course.title %></strong> để xem bài học này.</p>
+    <a href="/khoa-hoc/<%= course.slug %>" class="btn btn-primary">Xem thông tin khóa học</a>
+  </div>
+<% } else { %>
+<div class="row">
+  <div class="col-lg-8">
+    <h4 class="fw-bold mb-3"><%= lesson.title %></h4>
+    <% videos.forEach(v => { %>
+      <div class="ratio ratio-16x9 mb-3 bg-dark rounded overflow-hidden">
+        <% if (v.source_type === 'youtube') { %>
+          <iframe src="https://www.youtube-nocookie.com/embed/<%= v.source_value %>" allowfullscreen></iframe>
+        <% } else if (v.source_type === 'vimeo') { %>
+          <iframe src="https://player.vimeo.com/video/<%= v.source_value %>" allowfullscreen></iframe>
+        <% } else if (v.source_type === 'drive') { %>
+          <iframe src="<%= v.source_value.replace('/view','/preview') %>" allowfullscreen></iframe>
+        <% } else { %>
+          <video controls class="w-100 h-100"><source src="<%= v.source_value %>"></video>
+        <% } %>
+      </div>
+    <% }) %>
+    <% if (videos.length === 0) { %><p class="text-muted">Bài học này chưa có video.</p><% } %>
+
+    <% if (lesson.content) { %><div class="card p-3 mb-3"><%- lesson.content %></div><% } %>
+
+    <% if (typeof quiz !== 'undefined' && quiz) { %>
+      <div class="card p-3 mb-3 border-warning">
+        <h6 class="fw-bold mb-1"><i class="fa-solid fa-pen-to-square text-warning"></i> Bài kiểm tra: <%= quiz.title %></h6>
+        <p class="small text-muted mb-2">Cần đạt tối thiểu <%= quiz.pass_score %> câu đúng để hoàn thành.</p>
+        <a href="/thi/<%= quiz.id %>" class="btn btn-warning btn-sm">Làm bài kiểm tra</a>
+      </div>
+    <% } %>
+
+    <% if (files.length) { %>
+      <div class="card p-3">
+        <h6 class="fw-bold">Tài liệu đính kèm</h6>
+        <ul class="list-unstyled mb-0">
+          <% files.forEach(f => { %>
+            <li class="mb-1"><a href="<%= f.file_url %>" target="_blank"><i class="fa-solid fa-file-arrow-down"></i> <%= f.title %></a></li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card p-3">
+      <h6 class="fw-bold mb-2"><%= course.title %></h6>
+      <div class="accordion" id="watchAcc">
+        <% fullTree.forEach((ch, ci) => { %>
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed small" data-bs-toggle="collapse" data-bs-target="#wc<%= ch.id %>"><%= ch.title %></button>
+            </h2>
+            <div id="wc<%= ch.id %>" class="accordion-collapse collapse" data-bs-parent="#watchAcc">
+              <ul class="list-group list-group-flush">
+                <% ch.lessons.forEach(l => { %>
+                  <li class="list-group-item small <%= l.id === lesson.id ? 'bg-light fw-bold' : '' %>">
+                    <a href="/hoc/<%= l.id %>" class="text-decoration-none text-dark"><%= l.title %></a>
+                  </li>
+                <% }) %>
+              </ul>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+</div>
+<% } %>
+<%- include('partials/footer') %>

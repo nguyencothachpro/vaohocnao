@@ -1,0 +1,35 @@
+<% var pageTitle = 'Sách' %>
+<%- include('../../partials/admin-header') %>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <a href="/admin/sach/loai" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-tags"></i> Quản lý thể loại sách</a>
+  <a href="/admin/sach/them-moi" class="btn btn-primary btn-sm">+ Thêm sách</a>
+</div>
+<div class="card p-3">
+  <table class="table">
+    <thead><tr><th>Ảnh</th><th>Tên sách</th><th>Phân loại</th><th>Giá</th><th>Trạng thái</th><th></th></tr></thead>
+    <tbody>
+      <% books.forEach(b => { %>
+        <tr>
+          <td><img src="<%= b.cover_url || '/img/placeholder.svg' %>" width="45" height="60" style="object-fit:cover;border-radius:4px"></td>
+          <td><%= b.title %><br><small class="text-muted"><%= b.author %></small></td>
+          <td>
+            <% if (b.category_name) { %><span class="badge badge-cat"><%= b.category_name %></span><% } %>
+            <% if (b.book_type_name) { %><span class="badge bg-light text-dark border"><%= b.book_type_name %></span><% } %>
+            <% if (!b.category_name && !b.book_type_name) { %><span class="text-muted small">— chưa phân loại —</span><% } %>
+          </td>
+          <td><%= formatVND(b.price) %></td>
+          <td><span class="badge bg-<%= b.is_published ? 'success' : 'secondary' %>"><%= b.is_published ? 'Hiển thị' : 'Ẩn' %></span></td>
+          <td class="text-nowrap">
+            <a href="/admin/sach/<%= b.id %>/noi-dung" class="btn btn-sm btn-outline-primary">Nội dung</a>
+            <a href="/admin/sach/<%= b.id %>/sua" class="btn btn-sm btn-outline-secondary">Sửa</a>
+            <form method="POST" action="/admin/sach/<%= b.id %>/xoa" class="d-inline" onsubmit="return confirm('Xóa sách này?')">
+              <button class="btn btn-sm btn-outline-danger">Xóa</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (books.length === 0) { %><tr><td colspan="6" class="text-center text-muted">Chưa có sách nào.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/admin-footer') %>

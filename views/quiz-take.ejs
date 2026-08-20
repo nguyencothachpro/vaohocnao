@@ -1,0 +1,111 @@
+<% var pageTitle = quiz.title %>
+<%- include('partials/header') %>
+
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card p-4">
+      <h4 class="fw-bold mb-1"><%= quiz.title %></h4>
+      <p class="text-muted small mb-3">Tổng điểm: <%= totalPoints %> — Cần đạt tối thiểu <strong><%= quiz.pass_score %></strong> điểm.
+        <% if (quiz.is_standalone) { %> — <a href="/thi/<%= quiz.id %>/xep-hang">Xem bảng xếp hạng</a><% } %>
+      </p>
+
+      <% if (quiz.time_limit_minutes && quizStart) { %>
+        <div id="examTimer" class="alert alert-primary d-flex justify-content-between align-items-center small fw-bold" style="position:sticky; top:70px; z-index:10">
+          <span><i class="fa-solid fa-clock"></i> Thời gian còn lại</span>
+          <span id="timerDisplay" class="fs-5">--:--</span>
+        </div>
+      <% } %>
+
+      <% if (bestAttempt) { %>
+        <div class="alert alert-<%= bestAttempt.passed ? 'success' : 'warning' %> small">
+          Kết quả tốt nhất trước đó: <strong><%= bestAttempt.score %>/<%= bestAttempt.total %></strong>
+          — <%= bestAttempt.passed ? 'Đạt' : 'Chưa đạt (hoặc còn câu chưa được chấm tay)' %>. Bạn có thể làm lại để cải thiện điểm.
+        </div>
+      <% } %>
+
+      <% if (questions.length === 0) { %>
+        <p class="text-muted">Bài kiểm tra này chưa có câu hỏi.</p>
+      <% } else { %>
+        <form method="POST" action="/thi/<%= quiz.id %>/nop-bai" id="quizForm">
+
+          <% var partLabels = { single_choice: 'Phần I — Trắc nghiệm nhiều lựa chọn', true_false: 'Phần II — Trắc nghiệm Đúng/Sai', short_answer: 'Phần III — Trả lời ngắn', essay: 'Tự luận' };
+             var lastType = null; %>
+
+          <% questions.forEach((q, qi) => { %>
+            <% if (q.type !== lastType) { lastType = q.type; %>
+              <h6 class="fw-bold mt-4 mb-2 text-primary"><%= partLabels[q.type] %></h6>
+            <% } %>
+
+            <div class="mb-4">
+              <p class="fw-semibold">Câu <%= qi+1 %> (<%= q.points %>đ): <%- q.question %></p>
+
+              <% if (q.type === 'single_choice') { %>
+                <% q.options.forEach(o => { %>
+                  <div class="form-check mb-1">
+                    <input class="form-check-input" type="radio" name="answers[<%= q.id %>]" value="<%= o.id %>" id="opt<%= o.id %>">
+                    <label class="form-check-label" for="opt<%= o.id %>"><%- o.option_text %></label>
+                  </div>
+                <% }) %>
+
+              <% } else if (q.type === 'true_false') { %>
+                <table class="table table-sm">
+                  <thead><tr><th>Ý</th><th class="text-center" style="width:80px">Đúng</th><th class="text-center" style="width:80px">Sai</th></tr></thead>
+                  <tbody>
+                    <% q.tfItems.forEach((item, i) => { %>
+                      <tr>
+                        <td><%= String.fromCharCode(97+i) %>) <%- item.content %></td>
+                        <td class="text-center"><input type="radio" name="answers_tf[<%= q.id %>][<%= item.id %>]" value="true"></td>
+                        <td class="text-center"><input type="radio" name="answers_tf[<%= q.id %>][<%= item.id %>]" value="false"></td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+
+              <% } else if (q.type === 'short_answer') { %>
+                <input name="answers[<%= q.id %>]" class="form-control" style="max-width:300px" placeholder="Nhập đáp án">
+
+              <% } else if (q.type === 'essay') { %>
+                <textarea name="essay[<%= q.id %>]" class="form-control" rows="8" placeholder="Viết bài làm của bạn tại đây..."></textarea>
+              <% } %>
+            </div>
+          <% }) %>
+
+          <button class="btn btn-primary">Nộp bài</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<% if (quiz.time_limit_minutes && quizStart) { %>
+<script>
+  const startedAt = new Date('<%= quizStart.started_at %>').getTime();
+  const limitSeconds = <%= quiz.time_limit_minutes %> * 60;
+  const display = document.getElementById('timerDisplay');
+  const form = document.getElementById('quizForm');
+  let autoSubmitted = false;
+
+  function tick() {
+    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+    const remaining = limitSeconds - elapsed;
+    if (remaining <= 0) {
+      display.textContent = '00:00';
+      if (!autoSubmitted && form) {
+        autoSubmitted = true;
+        alert('Đã hết thời gian làm bài, hệ thống sẽ tự động nộp bài.');
+        form.submit();
+      }
+      return;
+    }
+    const m = Math.floor(remaining / 60), s = remaining % 60;
+    display.textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    if (remaining <= 60) document.getElementById('examTimer').classList.replace('alert-primary','alert-danger');
+  }
+  tick();
+  setInterval(tick, 1000);
+</script>
+<% } %>
+
+<script>window.MathJax = { tex: { inlineMath: [['$','$']] } };</script>
+<script id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/mml-chtml.js"></script>
+<%- include('partials/footer') %>

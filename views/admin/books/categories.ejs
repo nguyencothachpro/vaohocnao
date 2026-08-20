@@ -1,0 +1,26 @@
+<% var pageTitle = 'Danh mục sách' %>
+<%- include('../../partials/admin-header') %>
+<div class="mb-3"><a href="/admin/sach" class="btn btn-outline-secondary btn-sm">← Quay lại danh sách Sách</a></div>
+<div class="alert alert-secondary small">Đây là hệ danh mục <strong>riêng cho Sách</strong>, hoàn toàn tách biệt với Danh mục của Khóa học.</div>
+<div class="d-flex justify-content-end mb-3"><a href="/admin/sach/danh-muc/them-moi" class="btn btn-primary btn-sm">+ Thêm danh mục sách</a></div>
+<div class="card p-3">
+  <ul class="list-group" id="bookCatTree">
+    <% function renderBookCat(cats, level) { %>
+      <% cats.forEach(c => { %>
+        <li class="list-group-item d-flex justify-content-between align-items-center" style="padding-left:<%= 12 + level*24 %>px" data-id="<%= c.id %>">
+          <span><i class="fa-solid fa-grip-vertical drag-handle me-2"></i><%= level > 0 ? '↳ ' : '' %><%= c.name %></span>
+          <span>
+            <a href="/admin/sach/danh-muc/<%= c.id %>/sua" class="btn btn-sm btn-outline-secondary">Sửa</a>
+            <form method="POST" action="/admin/sach/danh-muc/<%= c.id %>/xoa" class="d-inline" onsubmit="return confirm('Xóa danh mục này?')">
+              <button class="btn btn-sm btn-outline-danger">Xóa</button>
+            </form>
+          </span>
+        </li>
+        <% if (c.children && c.children.length) renderBookCat(c.children, level+1) %>
+      <% }) %>
+    <% } %>
+    <% renderBookCat(tree, 0) %>
+  </ul>
+  <% if (tree.length === 0) { %><p class="text-muted mb-0 mt-2">Chưa có danh mục sách nào.</p><% } %>
+</div>
+<%- include('../../partials/admin-footer') %>

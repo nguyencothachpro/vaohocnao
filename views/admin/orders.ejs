@@ -1,0 +1,37 @@
+<% var pageTitle = 'Đơn hàng' %>
+<%- include('../partials/admin-header') %>
+<div class="card p-3">
+  <table class="table">
+    <thead><tr><th>Học viên</th><th>Khóa học</th><th>Số tiền</th><th>Phương thức</th><th>Trạng thái</th><th>Ngày tạo</th><th></th></tr></thead>
+    <tbody>
+      <% orders.forEach(o => { %>
+        <tr>
+          <td><%= o.user_name %><br><small class="text-muted"><%= o.email %></small></td>
+          <td><%= o.course_title || o.items_summary %></td>
+          <td><%= formatVND(o.amount) %></td>
+          <td>
+            <%= o.payment_method %>
+            <% if (o.payment_method === 'cod' && o.recipient_name) { %>
+              <div class="small text-muted mt-1">
+                <div><i class="fa-solid fa-user"></i> <%= o.recipient_name %></div>
+                <div><i class="fa-solid fa-phone"></i> <%= o.recipient_phone %></div>
+                <div><i class="fa-solid fa-location-dot"></i> <%= o.recipient_address %></div>
+              </div>
+            <% } %>
+          </td>
+          <td><span class="badge bg-<%= o.status==='paid'?'success':(o.status==='pending'?'warning':'danger') %>"><%= o.status %></span></td>
+          <td><%= formatDate(o.created_at) %></td>
+          <td>
+            <% if (o.status === 'pending') { %>
+              <form method="POST" action="/admin/don-hang/<%= o.id %>/xac-nhan" onsubmit="return confirm('Xác nhận đã nhận được thanh toán?')">
+                <button class="btn btn-sm btn-success">Xác nhận đã thanh toán</button>
+              </form>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (orders.length === 0) { %><tr><td colspan="7" class="text-center text-muted">Chưa có đơn hàng nào.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../partials/admin-footer') %>

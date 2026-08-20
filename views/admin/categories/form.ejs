@@ -1,0 +1,26 @@
+<% var pageTitle = category ? 'Sửa danh mục' : 'Thêm danh mục' %>
+<%- include('../../partials/admin-header') %>
+<div class="card p-4" style="max-width:520px">
+  <form method="POST" action="<%= category ? '/admin/danh-muc/' + category.id : '/admin/danh-muc' %>">
+    <div class="mb-3">
+      <label class="form-label">Tên danh mục</label>
+      <input name="name" class="form-control" value="<%= category ? category.name : '' %>" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Danh mục cha (để trống nếu là danh mục gốc, vd: "Lớp 10")</label>
+      <select name="parent_id" class="form-select">
+        <option value="">-- Không có (danh mục gốc) --</option>
+        <% categories.forEach(c => { %>
+          <option value="<%= c.id %>" <%= category && category.parent_id === c.id ? 'selected' : '' %>><%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Icon (tùy chọn, class FontAwesome)</label>
+      <input name="icon" class="form-control" value="<%= category && category.icon ? category.icon : '' %>" placeholder="fa-solid fa-book">
+    </div>
+    <button class="btn btn-primary">Lưu</button>
+    <a href="/admin/danh-muc" class="btn btn-outline-secondary">Hủy</a>
+  </form>
+</div>
+<%- include('../../partials/admin-footer') %>

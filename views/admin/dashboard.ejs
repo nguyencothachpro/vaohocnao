@@ -1,0 +1,66 @@
+<% var pageTitle = 'Dashboard' %>
+<%- include('../partials/admin-header') %>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-2 col-6">
+    <div class="stat-card"><i class="fa-solid fa-user-graduate text-primary"></i>
+      <div class="num"><%= stats.studentCount %></div><div class="small text-muted">Học viên</div></div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="stat-card"><i class="fa-solid fa-book text-success"></i>
+      <div class="num"><%= stats.courseCount %></div><div class="small text-muted">Khóa học</div></div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="stat-card"><i class="fa-solid fa-list-check text-info"></i>
+      <div class="num"><%= stats.lessonCount %></div><div class="small text-muted">Bài học</div></div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="stat-card"><i class="fa-solid fa-video text-warning"></i>
+      <div class="num"><%= stats.videoCount %></div><div class="small text-muted">Video</div></div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="stat-card"><i class="fa-solid fa-eye text-secondary"></i>
+      <div class="num"><%= stats.videoViews %></div><div class="small text-muted">Lượt xem</div></div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="stat-card"><i class="fa-solid fa-sack-dollar text-danger"></i>
+      <div class="num" style="font-size:1.1rem"><%= formatVND(stats.revenue) %></div><div class="small text-muted">Doanh thu</div></div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card p-3">
+      <h6 class="fw-bold">Doanh thu 6 tháng gần nhất</h6>
+      <canvas id="revenueChart" height="140"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card p-3">
+      <h6 class="fw-bold">Đơn hàng gần đây</h6>
+      <table class="table table-sm">
+        <thead><tr><th>Học viên</th><th>Khóa học</th><th>Trạng thái</th></tr></thead>
+        <tbody>
+          <% recentOrders.forEach(o => { %>
+            <tr><td><%= o.user_name %></td><td><%= o.course_title %></td>
+              <td><span class="badge bg-<%= o.status==='paid'?'success':(o.status==='pending'?'warning':'danger') %>"><%= o.status %></span></td></tr>
+          <% }) %>
+          <% if (recentOrders.length === 0) { %><tr><td colspan="3" class="text-muted text-center">Chưa có đơn hàng.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const labels = <%- JSON.stringify(revenueByMonth.map(r => r.month)) %>;
+const data = <%- JSON.stringify(revenueByMonth.map(r => Number(r.total))) %>;
+new Chart(document.getElementById('revenueChart'), {
+  type: 'bar',
+  data: { labels, datasets: [{ label: 'Doanh thu (VNĐ)', data, backgroundColor: '#2f5fdb' }] },
+  options: { plugins: { legend: { display: false } } }
+});
+</script>
+
+<%- include('../partials/admin-footer') %>

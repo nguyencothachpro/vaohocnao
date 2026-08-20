@@ -1,0 +1,45 @@
+<% var pageTitle = 'Tất cả khóa học' %>
+<%- include('partials/header') %>
+<h3 class="fw-bold mb-3">Tất cả khóa học</h3>
+<div class="row">
+  <div class="col-lg-3 mb-4">
+    <div class="card p-3">
+      <h6 class="fw-bold mb-3"><i class="fa-solid fa-bars"></i> Danh mục</h6>
+      <div class="sidebar-cat">
+        <% categories.forEach(cat => { %>
+          <div class="mb-1">
+            <a href="/danh-muc/<%= cat.slug %>" class="fw-semibold"><%= cat.name %></a>
+            <% if (cat.children && cat.children.length) { %>
+              <ul class="list-unstyled ms-3 small">
+                <% cat.children.forEach(child => { %>
+                  <li><a href="/danh-muc/<%= child.slug %>"><i class="fa-solid fa-angle-right small"></i> <%= child.name %></a></li>
+                <% }) %>
+              </ul>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-9">
+    <div class="row g-3">
+      <% courses.forEach(c => { %>
+        <div class="col-md-4">
+          <a href="/khoa-hoc/<%= c.slug %>" class="text-decoration-none text-dark">
+            <div class="card course-card">
+              <img src="<%= c.thumbnail_url || '/img/placeholder.svg' %>" class="w-100">
+              <div class="p-3">
+                <% if (c.category_name) { %><span class="badge badge-cat mb-2"><%= c.category_name %></span><% } %>
+                <div class="fw-semibold mb-1"><%= c.title %></div>
+                <div class="small text-muted mb-2"><%= c.short_desc %></div>
+                <div class="price-tag"><%= c.price > 0 ? formatVND(c.price) : 'Miễn phí' %></div>
+              </div>
+            </div>
+          </a>
+        </div>
+      <% }) %>
+      <% if (courses.length === 0) { %><p class="text-muted">Chưa có khóa học nào.</p><% } %>
+    </div>
+  </div>
+</div>
+<%- include('partials/footer') %>

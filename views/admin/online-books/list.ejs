@@ -1,0 +1,36 @@
+<% var pageTitle = 'Đọc sách online' %>
+<%- include('../../partials/admin-header') %>
+<div class="alert alert-secondary small">Mục riêng biệt, không liên quan tới "Sách (bán/tải file)". Sách ở đây chỉ để đọc trực tiếp trên web kiểu lật trang.</div>
+<div class="d-flex justify-content-end mb-3"><a href="/admin/doc-sach-online/them-moi" class="btn btn-primary btn-sm">+ Thêm sách đọc online</a></div>
+<div class="card p-3">
+  <table class="table">
+    <thead><tr><th>Ảnh</th><th>Tên sách</th><th>File sách</th><th>Giá</th><th>Trạng thái</th><th></th></tr></thead>
+    <tbody>
+      <% books.forEach(b => { %>
+        <tr>
+          <td><img src="<%= b.cover_url || '/img/placeholder.svg' %>" width="45" height="60" style="object-fit:cover;border-radius:4px"></td>
+          <td><%= b.title %><br><small class="text-muted"><%= b.author %></small></td>
+          <td>
+            <% if (b.file_url) { %><span class="badge bg-success">Đã có PDF</span>
+            <% } else if (b.chapter_count > 0) { %><span class="badge bg-warning text-dark"><%= b.chapter_count %> chương (kiểu cũ)</span>
+            <% } else { %><span class="badge bg-secondary">Chưa có nội dung</span><% } %>
+          </td>
+          <td><%= b.price > 0 ? formatVND(b.price) : 'Miễn phí' %></td>
+          <td><span class="badge bg-<%= b.is_published ? 'success' : 'secondary' %>"><%= b.is_published ? 'Hiển thị' : 'Ẩn' %></span></td>
+          <td class="text-nowrap">
+            <a href="/admin/doc-sach-online/<%= b.id %>/sua" class="btn btn-sm btn-outline-primary">Sửa / Gắn file PDF</a>
+            <% if (b.file_url) { %>
+              <a href="/admin/doc-sach-online/<%= b.id %>/muc-luc" class="btn btn-sm btn-outline-success" title="Tự gõ tiêu đề + số trang">Mục lục (gõ tay)</a>
+            <% } %>
+            <a href="/admin/doc-sach-online/<%= b.id %>/chuong" class="btn btn-sm btn-outline-secondary" title="Cách cũ, tách theo chương">Chương (nâng cao)</a>
+            <form method="POST" action="/admin/doc-sach-online/<%= b.id %>/xoa" class="d-inline" onsubmit="return confirm('Xóa sách này?')">
+              <button class="btn btn-sm btn-outline-danger">Xóa</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (books.length === 0) { %><tr><td colspan="6" class="text-center text-muted">Chưa có sách đọc online nào.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/admin-footer') %>

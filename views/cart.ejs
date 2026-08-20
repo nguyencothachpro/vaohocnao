@@ -1,0 +1,34 @@
+<% var pageTitle = 'Giỏ hàng' %>
+<%- include('partials/header') %>
+<h3 class="fw-bold mb-3">Giỏ hàng của bạn</h3>
+
+<% if (items.length === 0) { %>
+  <div class="card p-4 text-center">
+    <p class="text-muted mb-2">Giỏ hàng đang trống.</p>
+    <a href="/khoa-hoc" class="btn btn-outline-primary btn-sm">Khám phá khóa học</a>
+  </div>
+<% } else { %>
+  <div class="card p-3 mb-3">
+    <% items.forEach(i => { %>
+      <div class="d-flex align-items-center justify-content-between border-bottom py-2">
+        <div class="d-flex align-items-center gap-3">
+          <img src="<%= i.image || '/img/placeholder.svg' %>" style="width:70px;height:50px;object-fit:cover;border-radius:6px">
+          <div>
+            <div class="fw-semibold"><%= i.item_type === 'book' ? '📘' : i.item_type === 'online_book' ? '📖' : '🎓' %> <%= i.title %></div>
+            <div class="price-tag"><%= formatVND(i.price) %></div>
+          </div>
+        </div>
+        <form method="POST" action="/gio-hang/xoa">
+          <input type="hidden" name="item_type" value="<%= i.item_type %>">
+          <input type="hidden" name="item_id" value="<%= i.item_id %>">
+          <button class="btn btn-sm btn-outline-danger">Xóa</button>
+        </form>
+      </div>
+    <% }) %>
+  </div>
+  <div class="card p-3 d-flex flex-row justify-content-between align-items-center">
+    <div><span class="fw-bold">Tổng cộng: </span><span class="price-tag fs-4"><%= formatVND(total) %></span></div>
+    <a href="/thanh-toan" class="btn btn-primary">Tiến hành thanh toán</a>
+  </div>
+<% } %>
+<%- include('partials/footer') %>

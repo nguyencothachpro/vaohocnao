@@ -1,0 +1,53 @@
+<% var pageTitle = 'Kết quả bài kiểm tra' %>
+<%- include('partials/header') %>
+
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card p-4 text-center mb-3">
+      <% if (result.needsManualGrading) { %>
+        <i class="fa-solid fa-hourglass-half text-warning fa-3x mb-2"></i>
+        <h4 class="fw-bold">Đã nộp bài, đang chờ chấm</h4>
+        <p class="text-muted">Bài của bạn có câu tự luận cần giáo viên chấm tay. Điểm hiện tại (chưa tính phần tự luận):</p>
+      <% } else { %>
+        <i class="fa-solid <%= result.passed ? 'fa-circle-check text-success' : 'fa-circle-xmark text-danger' %> fa-3x mb-2"></i>
+        <h4 class="fw-bold"><%= result.passed ? 'Chúc mừng, bạn đã đạt!' : 'Chưa đạt yêu cầu' %></h4>
+      <% } %>
+      <p class="fs-5">Điểm số: <strong><%= result.score %>/<%= result.total %></strong> (cần tối thiểu <%= result.passScore %>)</p>
+      <a href="/thi/<%= quiz.id %>" class="btn btn-outline-primary btn-sm">Làm lại</a>
+    </div>
+
+    <div class="card p-3">
+      <h6 class="fw-bold mb-2">Chi tiết bài làm</h6>
+      <% result.details.forEach((d, i) => { %>
+        <div class="mb-2 p-2 rounded bg-light">
+          <div><strong>Câu <%= i+1 %> (<%= d.earned %>/<%= d.maxPoints %>đ):</strong> <%- d.question %></div>
+
+          <% if (d.type === 'single_choice') { %>
+            <div class="small <%= d.isCorrect ? 'text-success' : 'text-danger' %>"><%= d.isCorrect ? '✓ Đúng' : '✗ Chưa đúng' %></div>
+
+          <% } else if (d.type === 'true_false') { %>
+            <ul class="list-unstyled small mb-0 mt-1">
+              <% d.items.forEach((it, ii) => { %>
+                <li class="<%= it.isMatched ? 'text-success' : 'text-danger' %>">
+                  <%= String.fromCharCode(97+ii) %>) <%- it.content %> — bạn chọn: <%= it.chosen === 'true' ? 'Đúng' : (it.chosen === 'false' ? 'Sai' : 'chưa chọn') %> <%= it.isMatched ? '✓' : '✗' %>
+                </li>
+              <% }) %>
+            </ul>
+            <div class="small text-muted mt-1">Đúng <%= d.correctCount %>/4 ý</div>
+
+          <% } else if (d.type === 'short_answer') { %>
+            <div class="small">Bạn trả lời: <strong><%= d.yourAnswer || '(bỏ trống)' %></strong></div>
+            <div class="small <%= d.isCorrect ? 'text-success' : 'text-danger' %>"><%= d.isCorrect ? '✓ Đúng' : '✗ Chưa đúng' %></div>
+
+          <% } else if (d.type === 'essay') { %>
+            <div class="small text-warning">Câu tự luận — đang chờ giáo viên chấm tay</div>
+          <% } %>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+</div>
+
+<script>window.MathJax = { tex: { inlineMath: [['$','$']] } };</script>
+<script id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/mml-chtml.js"></script>
+<%- include('partials/footer') %>

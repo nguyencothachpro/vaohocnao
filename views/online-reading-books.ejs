@@ -1,0 +1,44 @@
+<% var pageTitle = 'Đọc sách online' %>
+<%- include('partials/header') %>
+
+<div class="hero p-5 mb-4 text-center">
+  <h1 class="fw-bold">Đọc sách online</h1>
+  <p class="mb-0">Đọc trực tiếp trên web theo kiểu lật trang — không cần tải file về máy.</p>
+</div>
+
+<div class="row">
+  <div class="col-lg-3 mb-4">
+    <div class="card p-3">
+      <h6 class="fw-bold mb-2"><i class="fa-solid fa-layer-group"></i> Theo danh mục</h6>
+      <%- include('partials/category-tree', {
+        categories: categories,
+        baseUrl: '/doc-sach-online',
+        activeCategory: activeCategory
+      }) %>
+    </div>
+  </div>
+  <div class="col-lg-9">
+    <div class="row g-3">
+      <% books.forEach(b => { %>
+        <div class="col-md-4">
+          <a href="/doc-sach-online/<%= b.slug %>" class="text-decoration-none text-dark">
+            <div class="card course-card">
+              <img src="<%= b.cover_url || '/img/placeholder.svg' %>" class="w-100" style="height:220px;object-fit:cover">
+              <div class="p-3">
+                <% if (b.category_name) { %>
+                  <span class="badge badge-cat mb-2"><%= b.category_name %></span>
+                <% } %>
+                <div class="fw-semibold mb-1"><%= b.title %></div>
+                <div class="small text-muted mb-2"><%= b.author %> — <%= b.chapter_count %> chương</div>
+                <div class="price-tag"><%= b.price > 0 ? formatVND(b.price) : 'Miễn phí' %></div>
+              </div>
+            </div>
+          </a>
+        </div>
+      <% }) %>
+      <% if (books.length === 0) { %><p class="text-muted">Chưa có sách nào hỗ trợ đọc online.</p><% } %>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

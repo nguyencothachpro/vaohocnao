@@ -1,0 +1,48 @@
+<% var pageTitle = 'Học viên: ' + student.name %>
+<%- include('../partials/admin-header') %>
+<div class="card p-3 mb-3">
+  <div class="d-flex align-items-center gap-3">
+    <img src="<%= student.avatar_url || '/img/placeholder.svg' %>" width="70" height="70" class="rounded-circle" style="object-fit:cover">
+    <div>
+      <h5 class="fw-bold mb-0"><%= student.name %></h5>
+      <div class="text-muted">Điểm: <%= student.points %></div>
+    </div>
+  </div>
+  <hr>
+  <div class="row small">
+    <div class="col-md-3"><strong>Email:</strong> <%= student.email %></div>
+    <div class="col-md-3"><strong>SĐT:</strong> <%= student.phone || '— chưa có —' %></div>
+    <div class="col-md-2"><strong>Năm sinh:</strong> <%= student.birth_year || '—' %></div>
+    <div class="col-md-4"><strong>Địa chỉ:</strong> <%= student.address || '— chưa có —' %></div>
+  </div>
+  <% if (!student.phone || !student.address) { %>
+    <div class="alert alert-secondary small mt-2 mb-0">Học viên này chưa từng thanh toán đơn nào nên thông tin liên hệ đầy đủ (SĐT/địa chỉ) chưa có — thông tin sẽ tự cập nhật ngay khi họ mua khóa học/sách đầu tiên.</div>
+  <% } %>
+</div>
+
+<div class="card p-3 mb-3">
+  <h6 class="fw-bold">Khóa học đã ghi danh</h6>
+  <table class="table table-sm">
+    <thead><tr><th>Khóa học</th><th>Tiến độ</th><th>Ngày đăng ký</th></tr></thead>
+    <tbody>
+      <% enrollments.forEach(e => { %>
+        <tr><td><%= e.title %></td><td><%= e.progress_percent %>%</td><td><%= formatDate(e.enrolled_at) %></td></tr>
+      <% }) %>
+      <% if (enrollments.length === 0) { %><tr><td colspan="3" class="text-muted text-center">Chưa ghi danh khóa học nào.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<div class="card p-3">
+  <h6 class="fw-bold">Sách đã mua</h6>
+  <table class="table table-sm">
+    <thead><tr><th>Tên sách</th><th>Ngày mua</th></tr></thead>
+    <tbody>
+      <% books.forEach(b => { %>
+        <tr><td><%= b.title %></td><td><%= formatDate(b.purchased_at) %></td></tr>
+      <% }) %>
+      <% if (books.length === 0) { %><tr><td colspan="2" class="text-muted text-center">Chưa mua sách nào.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../partials/admin-footer') %>

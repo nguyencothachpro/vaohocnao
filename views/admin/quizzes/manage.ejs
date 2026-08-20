@@ -1,0 +1,160 @@
+<% var pageTitle = quiz ? 'Bài kiểm tra: ' + quiz.title : (lesson ? 'Bài kiểm tra: ' + lesson.title : 'Đề thi mới') %>
+<%- include('../../partials/admin-header') %>
+
+<% if (typeof backLink !== 'undefined' && backLink) { %>
+  <div class="mb-3"><a href="<%= backLink %>" class="btn btn-outline-secondary btn-sm">← Quay lại</a></div>
+<% } %>
+
+<% if (!quiz) { %>
+  <div class="card p-4" style="max-width:500px">
+    <h6 class="fw-bold mb-3">Tạo bài kiểm tra<%= lesson ? ' cho bài học này' : '' %></h6>
+    <form method="POST" action="/admin/bai-kiem-tra">
+      <% if (lesson) { %><input type="hidden" name="lesson_id" value="<%= lesson.id %>"><% } %>
+      <div class="mb-3"><label class="form-label">Tên bài kiểm tra</label>
+        <input name="title" class="form-control" value="<%= lesson ? 'Bài kiểm tra: ' + lesson.title : '' %>" required></div>
+      <div class="mb-3"><label class="form-label">Điểm tối thiểu để đạt (thang điểm tổng của cả bài)</label>
+        <input type="number" step="0.1" name="pass_score" class="form-control" value="5" min="0"></div>
+      <button class="btn btn-primary">Tạo bài kiểm tra</button>
+    </form>
+  </div>
+<% } else { %>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h6 class="fw-bold mb-0"><%= quiz.title %></h6>
+      <div class="small text-muted">Tổng điểm: <%= totalPoints %> — Cần đạt tối thiểu <%= quiz.pass_score %> điểm</div>
+    </div>
+    <div>
+      <a href="/admin/bai-kiem-tra/<%= quiz.id %>/tai-de" class="btn btn-sm btn-outline-success">📄 Tải đề từ file/link</a>
+      <a href="/admin/bai-kiem-tra/<%= quiz.id %>/ket-qua" class="btn btn-sm btn-outline-primary">Xem bảng điểm</a>
+      <form method="POST" action="/admin/bai-kiem-tra/<%= quiz.id %>/xoa" class="d-inline" onsubmit="return confirm('Xóa cả bài kiểm tra và toàn bộ câu hỏi?')">
+        <% if (lesson) { %><input type="hidden" name="lesson_id" value="<%= lesson.id %>"><% } %>
+        <button class="btn btn-sm btn-outline-danger">Xóa bài kiểm tra</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <h6 class="fw-bold mb-2">Thêm câu hỏi mới</h6>
+    <form method="POST" action="/admin/bai-kiem-tra/cau-hoi" id="addQuestionForm">
+      <input type="hidden" name="quiz_id" value="<%= quiz.id %>">
+
+      <div class="row g-2 mb-2">
+        <div class="col-md-8">
+          <label class="form-label">Dạng câu hỏi</label>
+          <select name="type" id="qType" class="form-select">
+            <option value="single_choice">Phần I — Trắc nghiệm nhiều lựa chọn (1 đáp án đúng/4 phương án)</option>
+            <option value="true_false">Phần II — Trắc nghiệm Đúng/Sai (4 ý a,b,c,d)</option>
+            <option value="short_answer">Phần III — Trả lời ngắn (tự điền đáp án)</option>
+            <option value="essay">Tự luận (Ngữ văn — cần chấm tay)</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Điểm cho câu này</label>
+          <input type="number" step="0.05" name="points" id="qPoints" class="form-control" value="0.25">
+        </div>
+      </div>
+
+      <div class="mb-2"><textarea name="question" class="form-control" rows="2" placeholder="Nội dung câu hỏi / đề bài" required></textarea></div>
+
+      <div id="fieldsSingleChoice">
+        <div class="row g-2 mb-2">
+          <% for (let i = 0; i < 4; i++) { %>
+            <div class="col-md-6 d-flex align-items-center gap-2">
+              <input type="radio" name="correct_index" value="<%= i %>" <%= i===0?'checked':'' %> title="Đáp án đúng">
+              <input name="options[]" class="form-control" placeholder="Phương án <%= String.fromCharCode(65+i) %>">
+            </div>
+          <% } %>
+        </div>
+        <div class="form-text">Tick vào nút tròn ở phương án đúng. Điểm mặc định theo quy chế: 0.25đ/câu.</div>
+      </div>
+
+      <div id="fieldsTrueFalse" class="d-none">
+        <p class="small text-muted mb-1">Nhập 4 ý (a, b, c, d), tick "Đúng" cho các ý đúng:</p>
+        <% ['a','b','c','d'].forEach((letter, i) => { %>
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="text-muted" style="width:16px"><%= letter %>)</span>
+            <input name="tf_content[]" class="form-control" placeholder="Nội dung ý <%= letter %>">
+            <label class="d-flex align-items-center gap-1 small"><input type="checkbox" name="tf_correct[]" value="<%= i %>"> Đúng</label>
+          </div>
+        <% }) %>
+        <div class="form-text">Thang điểm chính thức: đúng 1 ý = 0.1đ, 2 ý = 0.25đ, 3 ý = 0.5đ, cả 4 ý = điểm tối đa của câu (thường 1đ).</div>
+      </div>
+
+      <div id="fieldsShortAnswer" class="d-none">
+        <input name="correct_answer" class="form-control" placeholder="Đáp án đúng (học viên phải gõ khớp, không phân biệt hoa thường)">
+        <div class="form-text">Điểm mặc định theo quy chế: môn Toán 0.5đ/câu, các môn khác 0.25đ/câu.</div>
+      </div>
+
+      <div id="fieldsEssay" class="d-none">
+        <div class="form-text">Học viên sẽ nhập bài làm dạng văn bản dài (Đọc hiểu / Nghị luận xã hội / Nghị luận văn học...). Bạn cần vào "Bảng điểm" để chấm tay và cho điểm sau khi học viên nộp bài.</div>
+      </div>
+
+      <button class="btn btn-primary btn-sm mt-2">Thêm câu hỏi</button>
+    </form>
+  </div>
+
+  <div class="card p-3">
+    <h6 class="fw-bold mb-2">Danh sách câu hỏi (<%= questions.length %>)</h6>
+    <% questions.forEach((q, qi) => { %>
+      <div class="border rounded p-2 mb-2">
+        <div class="d-flex justify-content-between">
+          <strong>
+            Câu <%= qi+1 %>
+            <span class="badge bg-secondary"><%=
+              q.type === 'single_choice' ? 'Trắc nghiệm' :
+              q.type === 'true_false' ? 'Đúng/Sai' :
+              q.type === 'short_answer' ? 'Trả lời ngắn' : 'Tự luận' %></span>
+            <span class="text-muted small">(<%= q.points %>đ)</span>: <%- q.question %>
+          </strong>
+          <form method="POST" action="/admin/cau-hoi/<%= q.id %>/xoa" onsubmit="return confirm('Xóa câu hỏi này?')">
+            <% if (lesson) { %><input type="hidden" name="lesson_id" value="<%= lesson.id %>"><% } %>
+            <input type="hidden" name="quiz_id" value="<%= quiz.id %>">
+            <button class="btn btn-sm btn-link text-danger p-0">Xóa</button>
+          </form>
+        </div>
+
+        <% if (q.type === 'single_choice') { %>
+          <ul class="list-unstyled small mb-0 mt-1">
+            <% q.options.forEach(o => { %>
+              <li class="<%= o.is_correct ? 'text-success fw-bold' : '' %>"><%= o.is_correct ? '✓' : '·' %> <%- o.option_text %></li>
+            <% }) %>
+          </ul>
+        <% } else if (q.type === 'true_false') { %>
+          <ul class="list-unstyled small mb-0 mt-1">
+            <% q.tfItems.forEach((item, i) => { %>
+              <li><%= String.fromCharCode(97+i) %>) <%- item.content %> — <span class="<%= item.is_correct ? 'text-success fw-bold' : 'text-danger' %>"><%= item.is_correct ? 'Đúng' : 'Sai' %></span></li>
+            <% }) %>
+          </ul>
+        <% } else if (q.type === 'short_answer') { %>
+          <div class="small mt-1">Đáp án đúng: <strong class="text-success"><%= q.correct_answer %></strong></div>
+        <% } else { %>
+          <div class="small text-muted mt-1">Câu tự luận — chấm tay tại "Bảng điểm"</div>
+        <% } %>
+      </div>
+    <% }) %>
+    <% if (questions.length === 0) { %><p class="text-muted small mb-0">Chưa có câu hỏi nào.</p><% } %>
+  </div>
+<% } %>
+
+<script>
+  const typeSelect = document.getElementById('qType');
+  const pointsInput = document.getElementById('qPoints');
+  const fieldGroups = {
+    single_choice: document.getElementById('fieldsSingleChoice'),
+    true_false: document.getElementById('fieldsTrueFalse'),
+    short_answer: document.getElementById('fieldsShortAnswer'),
+    essay: document.getElementById('fieldsEssay')
+  };
+  const defaultPoints = { single_choice: 0.25, true_false: 1, short_answer: 0.25, essay: 2 };
+  if (typeSelect) {
+    typeSelect.addEventListener('change', () => {
+      Object.values(fieldGroups).forEach(el => el.classList.add('d-none'));
+      fieldGroups[typeSelect.value].classList.remove('d-none');
+      pointsInput.value = defaultPoints[typeSelect.value];
+    });
+  }
+</script>
+
+<script>window.MathJax = { tex: { inlineMath: [['$','$']] } };</script>
+<script id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/mml-chtml.js"></script>
+<%- include('../../partials/admin-footer') %>
