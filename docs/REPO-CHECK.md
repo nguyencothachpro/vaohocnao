@@ -1,0 +1,1 @@
+Repository inspected: nguyen cothachpro/vaohocnao. Continue implementation only after reading existing controllers, models, routes and views.
