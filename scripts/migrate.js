@@ -26,6 +26,11 @@ async function columnType(client, table, column) {
   return r.rows[0]?.type || null;
 }
 
+async function ensureColumn(client, table, column, sqlType, defaultSql = null) {
+  if (await columnType(client, table, column)) return;
+  await client.query(`ALTER TABLE ${qi(table)} ADD COLUMN ${qi(column)} ${sqlType}${defaultSql ? ` DEFAULT ${defaultSql}` : ''}`);
+}
+
 async function dropForeignKeysBetween(client, childTable, parentTable) {
   if (!(await tableExists(client, childTable)) || !(await tableExists(client, parentTable))) return;
   const r = await client.query(`
@@ -53,7 +58,7 @@ async function ensureSession(client) {
 }
 
 async function ensureCoreTables(client) {
-  // 1) Independent parent tables.
+  // 1) Users is the main parent table.
   await client.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -70,6 +75,9 @@ async function ensureCoreTables(client) {
     );
   `);
 
+  // 2) Categories: deliberately create it WITHOUT the self-referencing FK.
+  // Legacy DBs may have a different id type; the FK is attached only after
+  // the existing shape is normalized.
   await client.query(`
     CREATE TABLE IF NOT EXISTS categories (
       id SERIAL PRIMARY KEY,
@@ -85,15 +93,22 @@ async function ensureCoreTables(client) {
   const usersIdType = (await columnType(client, 'users', 'id')) || 'integer';
   const categoryIdType = (await columnType(client, 'categories', 'id')) || 'integer';
 
-  // 2) Normalize legacy category self-reference before attaching FK.
+  await ensureColumn(client, 'categories', 'parent_id', categoryIdType, 'NULL');
+
+  // Normalize categories.parent_id before attempting the FK.
   await dropForeignKeysBetween(client, 'categories', 'categories');
   const parentType = await columnType(client, 'categories', 'parent_id');
   if (parentType && parentType !== categoryIdType) {
-    await client.query(`ALTER TABLE categories ALTER COLUMN parent_id TYPE ${categoryIdType} USING NULLIF(parent_id::text, '')::${categoryIdType}`);
+    await client.query(`ALTER TABLE ${qi('categories')} ALTER COLUMN ${qi('parent_id')} TYPE ${categoryIdType} USING NULLIF(${qi('parent_id')}::text, '')::${categoryIdType}`);
   }
 
-  // 3) Courses WITHOUT foreign keys first. This avoids CREATE TABLE FK
-  // failures against a legacy categories.id type.
+  // Attach the self-FK only when the column is known to exist.
+  if (await columnType(client, 'categories', 'parent_id')) {
+    await client.query(`ALTER TABLE ${qi('categories')} DROP CONSTRAINT IF EXISTS ${qi('categories_parent_id_fkey')}`);
+    await client.query(`ALTER TABLE ${qi('categories')} ADD CONSTRAINT ${qi('categories_parent_id_fkey')} FOREIGN KEY (${qi('parent_id')}) REFERENCES ${qi('categories')}(${qi('id')}) ON DELETE CASCADE`);
+  }
+
+  // 3) Courses without FKs first, then normalize child columns.
   await client.query(`
     CREATE TABLE IF NOT EXISTS courses (
       id SERIAL PRIMARY KEY,
@@ -112,18 +127,27 @@ async function ensureCoreTables(client) {
     );
   `);
 
-  const oldCategoryType = await columnType(client, 'courses', 'category_id');
-  if (oldCategoryType && oldCategoryType !== categoryIdType) {
-    await dropForeignKeysBetween(client, 'courses', 'categories');
-    await client.query(`ALTER TABLE courses ALTER COLUMN category_id TYPE ${categoryIdType} USING NULLIF(category_id::text, '')::${categoryIdType}`);
+  await ensureColumn(client, 'courses', 'category_id', categoryIdType, 'NULL');
+  await ensureColumn(client, 'courses', 'teacher_id', usersIdType, 'NULL');
+
+  await dropForeignKeysBetween(client, 'courses', 'categories');
+  await dropForeignKeysBetween(client, 'courses', 'users');
+
+  const courseCategoryType = await columnType(client, 'courses', 'category_id');
+  if (courseCategoryType && courseCategoryType !== categoryIdType) {
+    await client.query(`ALTER TABLE ${qi('courses')} ALTER COLUMN ${qi('category_id')} TYPE ${categoryIdType} USING NULLIF(${qi('category_id')}::text, '')::${categoryIdType}`);
   }
-  const oldTeacherType = await columnType(client, 'courses', 'teacher_id');
-  if (oldTeacherType && oldTeacherType !== usersIdType) {
-    await dropForeignKeysBetween(client, 'courses', 'users');
-    await client.query(`ALTER TABLE courses ALTER COLUMN teacher_id TYPE ${usersIdType} USING NULLIF(teacher_id::text, '')::${usersIdType}`);
+  const teacherType = await columnType(client, 'courses', 'teacher_id');
+  if (teacherType && teacherType !== usersIdType) {
+    await client.query(`ALTER TABLE ${qi('courses')} ALTER COLUMN ${qi('teacher_id')} TYPE ${usersIdType} USING NULLIF(${qi('teacher_id')}::text, '')::${usersIdType}`);
   }
 
-  // 4) Books / online_books WITHOUT foreign keys.
+  await client.query(`ALTER TABLE ${qi('courses')} DROP CONSTRAINT IF EXISTS ${qi('courses_category_id_fkey')}`);
+  await client.query(`ALTER TABLE ${qi('courses')} DROP CONSTRAINT IF EXISTS ${qi('courses_teacher_id_fkey')}`);
+  await client.query(`ALTER TABLE ${qi('courses')} ADD CONSTRAINT ${qi('courses_category_id_fkey')} FOREIGN KEY (${qi('category_id')}) REFERENCES ${qi('categories')}(${qi('id')}) ON DELETE SET NULL`);
+  await client.query(`ALTER TABLE ${qi('courses')} ADD CONSTRAINT ${qi('courses_teacher_id_fkey')} FOREIGN KEY (${qi('teacher_id')}) REFERENCES ${qi('users')}(${qi('id')}) ON DELETE SET NULL`);
+
+  // 4) Other root tables.
   await client.query(`
     CREATE TABLE IF NOT EXISTS books (
       id SERIAL PRIMARY KEY,
@@ -157,7 +181,7 @@ async function ensureCoreTables(client) {
     );
   `);
 
-  // 5) Common child tables that schema.sql expects to exist before its ALTERs.
+  // 5) Core child tables with no FKs, so schema.sql can safely add columns.
   await client.query(`
     CREATE TABLE IF NOT EXISTS chapters (
       id SERIAL PRIMARY KEY,
@@ -189,51 +213,6 @@ async function ensureCoreTables(client) {
   `);
 
   await ensureSession(client);
-
-  // Reattach the core foreign keys only after types match.
-  await dropForeignKeysBetween(client, 'categories', 'categories');
-  await client.query(`ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_parent_id_fkey`);
-  await client.query(`
-    ALTER TABLE categories
-      ADD CONSTRAINT categories_parent_id_fkey
-      FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE CASCADE
-  `);
-
-  await dropForeignKeysBetween(client, 'courses', 'categories');
-  await dropForeignKeysBetween(client, 'courses', 'users');
-  await client.query(`ALTER TABLE courses DROP CONSTRAINT IF EXISTS courses_category_id_fkey`);
-  await client.query(`ALTER TABLE courses DROP CONSTRAINT IF EXISTS courses_teacher_id_fkey`);
-  await client.query(`
-    ALTER TABLE courses
-      ADD CONSTRAINT courses_category_id_fkey
-      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
-  `);
-  await client.query(`
-    ALTER TABLE courses
-      ADD CONSTRAINT courses_teacher_id_fkey
-      FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE SET NULL
-  `);
-
-  // If existing child tables have incompatible IDs, detach their FKs and
-  // normalize their columns to the parent integer IDs before the main schema.
-  if (await tableExists(client, 'chapters')) {
-    await dropForeignKeysBetween(client, 'chapters', 'courses');
-    const t = await columnType(client, 'chapters', 'course_id');
-    const courseType = (await columnType(client, 'courses', 'id')) || 'integer';
-    if (t && t !== courseType) await client.query(`ALTER TABLE chapters ALTER COLUMN course_id TYPE ${courseType} USING NULLIF(course_id::text, '')::${courseType}`);
-  }
-  if (await tableExists(client, 'lessons')) {
-    await dropForeignKeysBetween(client, 'lessons', 'chapters');
-    const t = await columnType(client, 'lessons', 'chapter_id');
-    const p = (await columnType(client, 'chapters', 'id')) || 'integer';
-    if (t && t !== p) await client.query(`ALTER TABLE lessons ALTER COLUMN chapter_id TYPE ${p} USING NULLIF(chapter_id::text, '')::${p}`);
-  }
-  if (await tableExists(client, 'quizzes')) {
-    await dropForeignKeysBetween(client, 'quizzes', 'lessons');
-    const t = await columnType(client, 'quizzes', 'lesson_id');
-    const p = (await columnType(client, 'lessons', 'id')) || 'integer';
-    if (t && t !== p) await client.query(`ALTER TABLE quizzes ALTER COLUMN lesson_id TYPE ${p} USING NULLIF(lesson_id::text, '')::${p}`);
-  }
 }
 
 async function applyRemainingSchema(client, schema, skipped) {
@@ -305,10 +284,8 @@ async function migrate() {
   try {
     await client.query('BEGIN');
     await ensureCoreTables(client);
-
     const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
     await applyRemainingSchema(client, schema, skipped);
-
     await ensureSession(client);
     await client.query('COMMIT');
     console.log(`>>> Migration OK. Core tables ensured; ${skipped.length} legacy compatibility conflicts skipped.`);
