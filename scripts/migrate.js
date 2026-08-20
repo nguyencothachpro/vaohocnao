@@ -28,9 +28,11 @@ async function migrate() {
     `);
     await db.query(`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");`);
     console.log('>>> Da tao bang session.');
+    await db.pool.end();
     process.exit(0);
   } catch (err) {
-    console.error('Loi migrate:', err);
+    console.error('Loi migrate:', err.stack || err);
+    try { await db.pool.end(); } catch (_) {}
     process.exit(1);
   }
 }
