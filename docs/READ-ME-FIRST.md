@@ -1,0 +1,1 @@
+Use branch feature/lop-hoc-ma-hoc-sinh for the class/student work. Do not deploy this branch to production until migrations and routes are tested.
