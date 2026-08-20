@@ -1,104 +1,14 @@
 require('dotenv').config();
-const express = require('express');
-const session = require('express-session');
-const pgSession = require('connect-pg-simple')(session);
-const methodOverride = require('method-override');
-const path = require('path');
-const http = require('http');
-const { Server: SocketIOServer } = require('socket.io');
-
-const db = require('./config/db');
-const { attachUser } = require('./middleware/auth');
-const { formatVND, formatDate, embedVideoInfo, embedPdfUrl } = require('./utils');
-const Settings = require('./models/Settings');
-const NavMenuItem = require('./models/NavMenuItem');
-const Popup = require('./models/Popup');
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-process.on('unhandledRejection', reason => console.error('>>> Unhandled Rejection:', reason));
-process.on('uncaughtException', err => console.error('>>> Uncaught Exception:', err));
-
-const wrapAsync = fn => {
-  if (typeof fn !== 'function' || fn.length >= 4) return fn;
-  return function(req,res,next){ Promise.resolve(fn(req,res,next)).catch(next); };
-};
-['get','post','put','delete','patch','all'].forEach(method=>{
-  const original=express.Router[method];
-  express.Router[method]=function(route,...handlers){return original.call(this,route,...handlers.map(wrapAsync));};
-});
-
-app.set('view engine','ejs');
-app.set('views',path.join(__dirname,'views'));
-app.use(express.urlencoded({extended:true,limit:'50mb'}));
-app.use(express.json({limit:'50mb'}));
-app.use(methodOverride('_method'));
-app.use(express.static(path.join(__dirname,'public')));
-app.use(session({
-  store:new pgSession({pool:db.pool,tableName:'session'}),
-  secret:process.env.SESSION_SECRET||'thay-doi-chuoi-bi-mat-nay',
-  resave:false,saveUninitialized:false,
-  cookie:{maxAge:30*24*60*60*1000}
-}));
-app.use(attachUser);
-app.use((req,res,next)=>{
-  res.locals.formatVND=formatVND;res.locals.formatDate=formatDate;res.locals.embedVideoInfo=embedVideoInfo;res.locals.embedPdfUrl=embedPdfUrl;res.locals.path=req.path;res.locals.req=req;
-  next();
-});
-app.use(async(req,res,next)=>{
-  try{
-    const [all,navItems,popup]=await Promise.all([Settings.getAll(),NavMenuItem.active(),Popup.activeOne()]);
-    res.locals.site={
-      site_name_1:all.site_name_1||'Học',site_name_2:all.site_name_2||'Online',hero_title:all.hero_title||'Học mọi lúc, mọi nơi',
-      hero_subtitle:all.hero_subtitle||'Nền tảng học tập trực tuyến.',footer_text:all.footer_text||'Vào Học Nào — Nền tảng học tập trực tuyến',
-      left_side_image:all.left_side_image||'',left_side_link:all.left_side_link||'',right_side_image:all.right_side_image||'',right_side_link:all.right_side_link||'',footer_logo:all.footer_logo||'',footer_link:all.footer_link||''
-    };
-    res.locals.navItems=navItems;res.locals.activePopup=popup||null;
-    const customDomain=(all.custom_domain||'').trim().toLowerCase();
-    if(customDomain&&req.hostname&&req.hostname.toLowerCase()===customDomain&&req.path==='/')return res.redirect(all.custom_domain_path||'/truyen');
-  }catch(e){
-    res.locals.site={site_name_1:'Học',site_name_2:'Online',hero_title:'Học mọi lúc, mọi nơi',hero_subtitle:'Nền tảng học tập trực tuyến.',footer_text:'Vào Học Nào',left_side_image:'',left_side_link:'',right_side_image:'',right_side_link:'',footer_logo:'',footer_link:''};
-    res.locals.navItems=[];res.locals.activePopup=null;
-  }
-  next();
-});
-
-app.use('/',require('./routes/site'));
-app.use('/',require('./routes/auth'));
-app.use('/',require('./routes/student'));
-app.use('/',require('./routes/classroom'));
-app.use('/webhook',require('./routes/webhook'));
-app.use('/admin',require('./routes/admin'));
-app.use((req,res)=>res.status(404).render('404'));
-app.use((err,req,res,next)=>{
-  console.error(err);
-  res.status(500).send(`<pre style="white-space:pre-wrap;font-family:monospace;padding:20px;color:#b5433a">Đã xảy ra lỗi máy chủ.\n\nTrang: ${req.method} ${req.originalUrl}\nLỗi: ${err.message}\n\nChi tiết kỹ thuật:\n${err.stack||''}</pre>`);
-});
-
-const httpServer=http.createServer(app);
-const io=new SocketIOServer(httpServer,{cors:{origin:true,credentials:true}});
-app.locals.io=io;
-const roomPeers=new Map();
-function emitPresence(room){io.to(`classroom:${room}`).emit('classroom:presence',{count:io.sockets.adapter.rooms.get(`classroom:${room}`)?.size||0});}
-
-io.on('connection',socket=>{
-  socket.on('classroom:join',({room,role,user})=>{
-    if(!room)return;
-    socket.join(`classroom:${room}`);socket.data.room=room;socket.data.role=role||'student';socket.data.user=user||'Thành viên';
-    socket.to(`classroom:${room}`).emit('classroom:peer-joined',{id:socket.id,role:socket.data.role});
-    emitPresence(room);
-  });
-  socket.on('classroom:board',payload=>{if(socket.data.room)socket.to(`classroom:${socket.data.room}`).emit('classroom:board',payload);});
-  socket.on('classroom:clear',()=>{if(socket.data.room)socket.to(`classroom:${socket.data.room}`).emit('classroom:clear');});
-  socket.on('classroom:page',payload=>{if(socket.data.room&&socket.data.role==='teacher')socket.to(`classroom:${socket.data.room}`).emit('classroom:page',payload);});
-  socket.on('classroom:material-open',payload=>{if(socket.data.room&&socket.data.role==='teacher')socket.to(`classroom:${socket.data.room}`).emit('classroom:material-open',payload);});
-  socket.on('classroom:chat',payload=>{if(socket.data.room)io.to(`classroom:${socket.data.room}`).emit('classroom:chat',{user:payload.user||socket.data.user||'Thành viên',text:String(payload.text||'').slice(0,1000),at:Date.now()});});
-  socket.on('webrtc:offer',({to,offer})=>io.to(to).emit('webrtc:offer',{from:socket.id,offer}));
-  socket.on('webrtc:answer',({to,answer})=>io.to(to).emit('webrtc:answer',{from:socket.id,answer}));
-  socket.on('webrtc:ice',({to,candidate})=>io.to(to).emit('webrtc:ice',{from:socket.id,candidate}));
-  socket.on('classroom:teacher-stream',()=>{if(socket.data.room)socket.to(`classroom:${socket.data.room}`).emit('classroom:teacher-stream',{id:socket.id});});
-  socket.on('classroom:request-stream',({id})=>{if(socket.data.room)socket.to(`classroom:${socket.data.room}`).emit('classroom:request-stream',{id:socket.id});});
-  socket.on('disconnect',()=>{if(socket.data.room){socket.to(`classroom:${socket.data.room}`).emit('classroom:peer-left',{id:socket.id});setTimeout(()=>emitPresence(socket.data.room),50);}});
-});
-
+const express=require('express');const session=require('express-session');const pgSession=require('connect-pg-simple')(session);const methodOverride=require('method-override');const path=require('path');const http=require('http');const {Server:SocketIOServer}=require('socket.io');
+const db=require('./config/db');const {attachUser}=require('./middleware/auth');const {formatVND,formatDate,embedVideoInfo,embedPdfUrl}=require('./utils');const Settings=require('./models/Settings');const NavMenuItem=require('./models/NavMenuItem');const Popup=require('./models/Popup');
+const app=express();const PORT=process.env.PORT||3000;process.on('unhandledRejection',reason=>console.error('>>> Unhandled Rejection:',reason));process.on('uncaughtException',err=>console.error('>>> Uncaught Exception:',err));
+const wrapAsync=fn=>{if(typeof fn!=='function'||fn.length>=4)return fn;return function(req,res,next){Promise.resolve(fn(req,res,next)).catch(next)}};['get','post','put','delete','patch','all'].forEach(method=>{const original=express.Router[method];express.Router[method]=function(route,...handlers){return original.call(this,route,...handlers.map(wrapAsync))}});
+app.set('view engine','ejs');app.set('views',path.join(__dirname,'views'));app.use(express.urlencoded({extended:true,limit:'50mb'}));app.use(express.json({limit:'50mb'}));app.use(methodOverride('_method'));app.use(express.static(path.join(__dirname,'public')));
+app.use(session({store:new pgSession({pool:db.pool,tableName:'session'}),secret:process.env.SESSION_SECRET||'thay-doi-chuoi-bi-mat-nay',resave:false,saveUninitialized:false,cookie:{maxAge:30*24*60*60*1000}}));app.use(attachUser);
+app.use((req,res,next)=>{res.locals.formatVND=formatVND;res.locals.formatDate=formatDate;res.locals.embedVideoInfo=embedVideoInfo;res.locals.embedPdfUrl=embedPdfUrl;res.locals.path=req.path;res.locals.req=req;next()});
+app.use(async(req,res,next)=>{try{const [all,navItems,popup]=await Promise.all([Settings.getAll(),NavMenuItem.active(),Popup.activeOne()]);res.locals.site={site_name_1:all.site_name_1||'Học',site_name_2:all.site_name_2||'Online',hero_title:all.hero_title||'Học mọi lúc, mọi nơi',hero_subtitle:all.hero_subtitle||'Nền tảng học tập trực tuyến.',footer_text:all.footer_text||'Vào Học Nào — Nền tảng học tập trực tuyến',left_side_image:all.left_side_image||'',left_side_link:all.left_side_link||'',right_side_image:all.right_side_image||'',right_side_link:all.right_side_link||'',footer_logo:all.footer_logo||'',footer_link:all.footer_link||''};res.locals.navItems=navItems;res.locals.activePopup=popup||null;const customDomain=(all.custom_domain||'').trim().toLowerCase();if(customDomain&&req.hostname&&req.hostname.toLowerCase()===customDomain&&req.path==='/')return res.redirect(all.custom_domain_path||'/truyen')}catch(e){res.locals.site={site_name_1:'Học',site_name_2:'Online',hero_title:'Học mọi lúc, mọi nơi',hero_subtitle:'Nền tảng học tập trực tuyến.',footer_text:'Vào Học Nào',left_side_image:'',left_side_link:'',right_side_image:'',right_side_link:'',footer_logo:'',footer_link:''};res.locals.navItems=[];res.locals.activePopup=null}next()});
+app.use('/',require('./routes/site'));app.use('/',require('./routes/auth'));app.use('/',require('./routes/student'));app.use('/',require('./routes/classroom'));app.use('/webhook',require('./routes/webhook'));app.use('/admin',require('./routes/admin'));app.use('/admin',require('./routes/bookQuizAdmin'));
+app.use((req,res)=>res.status(404).render('404'));app.use((err,req,res,next)=>{console.error(err);res.status(500).send(`<pre style="white-space:pre-wrap;font-family:monospace;padding:20px;color:#b5433a">Đã xảy ra lỗi máy chủ.\n\nTrang: ${req.method} ${req.originalUrl}\nLỗi: ${err.message}\n\nChi tiết kỹ thuật:\n${err.stack||''}</pre>`)});
+const httpServer=http.createServer(app);const io=new SocketIOServer(httpServer,{cors:{origin:true,credentials:true}});app.locals.io=io;function emitPresence(room){io.to(`classroom:${room}`).emit('classroom:presence',{count:io.sockets.adapter.rooms.get(`classroom:${room}`)?.size||0})}
+io.on('connection',socket=>{socket.on('classroom:join',({room,role,user})=>{if(!room)return;socket.join(`classroom:${room}`);socket.data.room=room;socket.data.role=role||'student';socket.data.user=user||'Thành viên';socket.to(`classroom:${room}`).emit('classroom:peer-joined',{id:socket.id,role:socket.data.role});emitPresence(room)});socket.on('classroom:board',payload=>{if(socket.data.room)socket.to(`classroom:${socket.data.room}`).emit('classroom:board',payload)});socket.on('classroom:clear',()=>{if(socket.data.room)socket.to(`classroom:${socket.data.room}`).emit('classroom:clear')});socket.on('classroom:page',payload=>{if(socket.data.room&&socket.data.role==='teacher')socket.to(`classroom:${socket.data.room}`).emit('classroom:page',payload)});socket.on('classroom:material-open',payload=>{if(socket.data.room&&socket.data.role==='teacher')socket.to(`classroom:${socket.data.room}`).emit('classroom:material-open',payload)});socket.on('classroom:chat',payload=>{if(socket.data.room)io.to(`classroom:${socket.data.room}`).emit('classroom:chat',{user:payload.user||socket.data.user||'Thành viên',text:String(payload.text||'').slice(0,1000),at:Date.now()})});socket.on('webrtc:offer',({to,offer})=>io.to(to).emit('webrtc:offer',{from:socket.id,offer}));socket.on('webrtc:answer',({to,answer})=>io.to(to).emit('webrtc:answer',{from:socket.id,answer}));socket.on('webrtc:ice',({to,candidate})=>io.to(to).emit('webrtc:ice',{from:socket.id,candidate}));socket.on('classroom:teacher-stream',()=>{if(socket.data.room)socket.to(`classroom:${socket.data.room}`).emit('classroom:teacher-stream',{id:socket.id})});socket.on('classroom:request-stream',({id})=>{if(socket.data.room)socket.to(`classroom:${socket.data.room}`).emit('classroom:request-stream',{id:socket.id})});socket.on('disconnect',()=>{if(socket.data.room){socket.to(`classroom:${socket.data.room}`).emit('classroom:peer-left',{id:socket.id});setTimeout(()=>emitPresence(socket.data.room),50)}})});
 httpServer.listen(PORT,()=>console.log(`>>> LMS dang chay tai http://localhost:${PORT}`));
