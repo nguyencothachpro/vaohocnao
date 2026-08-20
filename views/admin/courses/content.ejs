@@ -1,169 +1,32 @@
-<% var pageTitle = 'Nội dung: ' + course.title %>
+<% var pageTitle = 'Nội dung khóa học: ' + course.title %>
 <%- include('../../partials/admin-header') %>
-
-<button class="btn btn-primary btn-sm mb-3" data-bs-toggle="modal" data-bs-target="#addChapterModal">+ Thêm chương</button>
-
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><div><div class="small text-muted">Khóa học</div><h5 class="fw-bold mb-0"><%=course.title%></h5></div><div class="d-flex gap-2"><a href="/admin/khoa-hoc" class="btn btn-outline-secondary btn-sm">← Danh sách</a><button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addChapterModal">+ Thêm chương</button></div></div>
+<div class="alert alert-info small"><b>Cấu trúc:</b> Khóa học → Chương → Bài → Video / Tài liệu / Bài kiểm tra. Bạn có thể kéo thả chương, bài và video để đổi thứ tự. <b>Thời lượng video</b> chỉ dùng để hiển thị thời lượng và phục vụ thống kê/tiến độ; có thể để trống.</div>
 <div id="chapterList">
-  <% chapters.forEach(ch => { %>
-    <div class="card p-3 mb-3" data-id="<%= ch.id %>">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <h6 class="fw-bold mb-0"><i class="fa-solid fa-grip-vertical drag-handle chapter-handle me-2"></i><%= ch.title %></h6>
-        <div>
-          <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addLessonModal" data-chapter="<%= ch.id %>">+ Bài học</button>
-          <form method="POST" action="/admin/chuong/<%= ch.id %>/xoa" class="d-inline" onsubmit="return confirm('Xóa chương này và toàn bộ bài học bên trong?')">
-            <input type="hidden" name="course_id" value="<%= course.id %>">
-            <button class="btn btn-sm btn-outline-danger">Xóa chương</button>
-          </form>
-        </div>
-      </div>
-      <ul class="list-group lesson-list" data-chapter="<%= ch.id %>">
-        <% ch.lessons.forEach(l => { %>
-          <li class="list-group-item" data-id="<%= l.id %>">
-            <div class="d-flex justify-content-between align-items-center">
-              <span><i class="fa-solid fa-grip-vertical drag-handle lesson-handle me-2"></i>
-                <%= l.title %> <% if (l.is_preview) { %><span class="badge bg-success ms-1">Học thử</span><% } %>
-              </span>
-              <div>
-                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addVideoModal" data-lesson="<%= l.id %>">+ Video</button>
-                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addFileModal" data-lesson="<%= l.id %>">+ Tài liệu</button>
-                <a href="/admin/bai-hoc/<%= l.id %>/bai-kiem-tra" class="btn btn-sm btn-outline-warning"><%= l.quiz ? 'Sửa bài KT' : '+ Bài kiểm tra' %></a>
-                <form method="POST" action="/admin/bai-hoc/<%= l.id %>/xoa" class="d-inline" onsubmit="return confirm('Xóa bài học này?')">
-                  <input type="hidden" name="course_id" value="<%= course.id %>">
-                  <button class="btn btn-sm btn-outline-danger">Xóa</button>
-                </form>
-              </div>
-            </div>
-            <% if (l.videos.length || l.files.length) { %>
-              <ul class="list-unstyled small mt-2 ms-4 mb-0">
-                <% l.videos.forEach(v => { %>
-                  <li class="text-muted"><i class="fa-solid fa-video text-primary"></i> <%= v.title %> <span class="badge bg-light text-dark"><%= v.source_type %></span> <% if (v.duration_seconds) { %><span class="badge bg-secondary"><%= Math.floor(v.duration_seconds/60) %> phút</span><% } %> <% if (v.is_free) { %><span class="badge bg-success">Miễn phí</span><% } %>
-                    <form method="POST" action="/admin/video/<%= v.id %>/xoa" class="d-inline" onsubmit="return confirm('Xóa video?')">
-                      <input type="hidden" name="course_id" value="<%= course.id %>">
-                      <button class="btn btn-sm btn-link text-danger p-0 ms-1">xóa</button>
-                    </form>
-                  </li>
-                <% }) %>
-                <% l.files.forEach(f => { %>
-                  <li class="text-muted"><i class="fa-solid fa-file"></i> <%= f.title %> <% if (f.is_free) { %><span class="badge bg-success">Miễn phí</span><% } %>
-                    <form method="POST" action="/admin/tai-lieu/<%= f.id %>/xoa" class="d-inline" onsubmit="return confirm('Xóa tài liệu?')">
-                      <input type="hidden" name="course_id" value="<%= course.id %>">
-                      <button class="btn btn-sm btn-link text-danger p-0 ms-1">xóa</button>
-                    </form>
-                  </li>
-                <% }) %>
-              </ul>
-            <% } %>
-          </li>
-        <% }) %>
-      </ul>
-    </div>
-  <% }) %>
-  <% if (chapters.length === 0) { %><p class="text-muted">Chưa có chương nào. Bấm "+ Thêm chương" để bắt đầu.</p><% } %>
-</div>
+<% chapters.forEach((ch,ci)=>{ %><div class="card border-0 shadow-sm mb-3 chapter-card" data-id="<%=ch.id%>">
+  <div class="card-header bg-white p-3 d-flex justify-content-between align-items-center"><div class="d-flex align-items-center gap-2"><span class="drag-handle chapter-handle text-muted" title="Kéo để sắp xếp">☷</span><span class="badge bg-primary"><%=ci+1%></span><div><b><%=ch.title%></b><div class="small text-muted"><%=ch.lessons.length%> bài học</div></div></div><div class="d-flex gap-1"><button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editChapterModal" data-id="<%=ch.id%>" data-title="<%=ch.title%>">Sửa</button><button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addLessonModal" data-chapter="<%=ch.id%>">+ Bài học</button><form method="POST" action="/admin/chuong/<%=ch.id%>/xoa" class="d-inline" onsubmit="return confirm('Xóa chương và toàn bộ bài bên trong?')"><input type="hidden" name="course_id" value="<%=course.id%>"><button class="btn btn-sm btn-outline-danger">Xóa</button></form></div></div>
+  <div class="card-body p-2"><ul class="list-group lesson-list" data-chapter="<%=ch.id%>">
+  <% ch.lessons.forEach((l,li)=>{ %><li class="list-group-item p-3" data-id="<%=l.id%>"><div class="d-flex justify-content-between align-items-start gap-2"><div class="d-flex gap-2 align-items-start"><span class="drag-handle lesson-handle text-muted">☷</span><div><div><b><%=li+1%>. <%=l.title%></b> <%if(l.is_preview){%><span class="badge bg-success">Học thử</span><%}%></div><div class="small text-muted mt-1"><%=l.videos.length%> video · <%=l.files.length%> tài liệu <%if(l.quiz){%>· có bài kiểm tra<%}%></div></div></div><div class="d-flex gap-1 flex-wrap justify-content-end"><button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editLessonModal" data-id="<%=l.id%>" data-title="<%=l.title%>" data-content="<%=l.content||''%>" data-preview="<%=l.is_preview?'1':'0'%>">Sửa bài</button><button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addVideoModal" data-lesson="<%=l.id%>">+ Video</button><button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addFileModal" data-lesson="<%=l.id%>">+ Tài liệu</button><a href="/admin/bai-hoc/<%=l.id%>/bai-kiem-tra" class="btn btn-sm btn-outline-warning"><%=l.quiz?'Bài KT':'Bài tự luyện'%></a><form method="POST" action="/admin/bai-hoc/<%=l.id%>/xoa" class="d-inline" onsubmit="return confirm('Xóa bài học này?')"><input type="hidden" name="course_id" value="<%=course.id%>"><button class="btn btn-sm btn-outline-danger">Xóa</button></form></div></div>
+  <ul class="list-group list-group-flush mt-2 resource-list" data-lesson="<%=l.id%>">
+    <% l.videos.forEach(v=>{ %><li class="list-group-item px-2 py-2 d-flex justify-content-between align-items-center" data-id="<%=v.id%>"><div><span class="drag-handle video-handle me-2">☷</span><i class="fa-solid fa-video text-primary me-1"></i><%=v.title%> <span class="badge bg-light text-dark"><%=v.source_type%></span><%if(v.duration_seconds){%><span class="badge bg-secondary"><%=Math.floor(v.duration_seconds/60)%> phút <%=v.duration_seconds%60%> giây</span><%}%><%if(v.is_free){%><span class="badge bg-success">Miễn phí</span><%}%></div><form method="POST" action="/admin/video/<%=v.id%>/xoa" onsubmit="return confirm('Xóa video?')"><input type="hidden" name="course_id" value="<%=course.id%>"><button class="btn btn-sm btn-link text-danger">Xóa</button></form></li><% }) %>
+    <% l.files.forEach(f=>{ %><li class="list-group-item px-2 py-2 d-flex justify-content-between align-items-center"><div><i class="fa-solid fa-file-pdf text-danger me-1"></i><%=f.title%><%if(f.is_free){%><span class="badge bg-success ms-1">Miễn phí</span><%}%></div><form method="POST" action="/admin/tai-lieu/<%=f.id%>/xoa" onsubmit="return confirm('Xóa tài liệu?')"><input type="hidden" name="course_id" value="<%=course.id%>"><button class="btn btn-sm btn-link text-danger">Xóa</button></form></li><% }) %>
+  </ul></li><% }) %></ul></div></div><% }) %>
+<% if(!chapters.length){%><div class="card border-0 shadow-sm p-5 text-center"><h5>Chưa có chương</h5><p class="text-muted">Bấm + Thêm chương để bắt đầu xây cấu trúc khóa học.</p></div><%}%></div>
 
-<!-- Modal: Them chuong -->
-<div class="modal fade" id="addChapterModal"><div class="modal-dialog"><div class="modal-content">
-  <form method="POST" action="/admin/chuong">
-    <div class="modal-header"><h5 class="modal-title">Thêm chương</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body">
-      <input type="hidden" name="course_id" value="<%= course.id %>">
-      <input name="title" class="form-control" placeholder="Tên chương" required>
-    </div>
-    <div class="modal-footer"><button class="btn btn-primary">Thêm</button></div>
-  </form>
-</div></div></div>
-
-<!-- Modal: Them bai hoc -->
-<div class="modal fade" id="addLessonModal"><div class="modal-dialog"><div class="modal-content">
-  <form method="POST" action="/admin/bai-hoc">
-    <div class="modal-header"><h5 class="modal-title">Thêm bài học</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body">
-      <input type="hidden" name="course_id" value="<%= course.id %>">
-      <input type="hidden" name="chapter_id" id="lessonChapterId">
-      <div class="mb-2"><input name="title" class="form-control" placeholder="Tên bài học" required></div>
-      <div class="mb-2"><textarea name="content" class="form-control" rows="3" placeholder="Nội dung bài học (tùy chọn)"></textarea></div>
-      <div class="form-check"><input type="checkbox" name="is_preview" class="form-check-input"><label class="form-check-label">Cho học thử miễn phí</label></div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-primary">Thêm</button></div>
-  </form>
-</div></div></div>
-
-<!-- Modal: Them video -->
-<div class="modal fade" id="addVideoModal"><div class="modal-dialog"><div class="modal-content">
-  <form method="POST" action="/admin/video" enctype="multipart/form-data">
-    <div class="modal-header"><h5 class="modal-title">Thêm video</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body">
-      <input type="hidden" name="course_id" value="<%= course.id %>">
-      <input type="hidden" name="lesson_id" id="videoLessonId">
-      <div class="mb-2"><input name="title" class="form-control" placeholder="Tên video" required></div>
-      <div class="mb-2">
-        <select name="source_type" class="form-select" id="videoSourceType">
-          <option value="youtube">YouTube (dán link)</option>
-          <option value="vimeo">Vimeo (dán link)</option>
-          <option value="drive">Google Drive (dán link chia sẻ)</option>
-          <option value="upload">Upload file MP4</option>
-        </select>
-      </div>
-      <div class="mb-2" id="videoUrlField"><input name="source_value" class="form-control" placeholder="Dán link video vào đây"></div>
-      <div class="row g-2 mb-2"><div class="col-md-6"><label class="form-label small">Thời lượng (giây) — để hiển thị/thống kê</label><input type="number" name="duration_seconds" class="form-control" min="0" placeholder="Ví dụ 3600"></div>
-      <div class="col-md-6 d-flex align-items-end"><div class="form-check"><input type="checkbox" name="is_free" class="form-check-input"><label class="form-check-label">Video này cho xem miễn phí</label></div></div></div>
-      <div class="mb-2 d-none" id="videoFileField"><input type="file" name="video_file" class="form-control" accept="video/mp4"></div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-primary">Thêm</button></div>
-  </form>
-</div></div></div>
-
-<!-- Modal: Them tai lieu -->
-<div class="modal fade" id="addFileModal"><div class="modal-dialog"><div class="modal-content">
-  <form method="POST" action="/admin/tai-lieu" enctype="multipart/form-data">
-    <div class="modal-header"><h5 class="modal-title">Thêm tài liệu / PDF</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body">
-      <input type="hidden" name="course_id" value="<%= course.id %>">
-      <input type="hidden" name="lesson_id" id="fileLessonId">
-      <div class="mb-2"><input name="title" class="form-control" placeholder="Tên tài liệu" required></div>
-      <div class="mb-2"><input type="file" name="file" class="form-control" accept=".pdf,.doc,.docx,.zip"></div>
-      <div class="mb-2"><label class="form-label small">Hoặc dùng link Google Drive/URL</label><input name="file_url_link" class="form-control" placeholder="https://drive.google.com/..."></div>
-      <div class="form-check"><input type="checkbox" name="is_free" class="form-check-input"><label class="form-check-label">Tài liệu này cho xem miễn phí</label></div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-primary">Thêm</button></div>
-  </form>
-</div></div></div>
-
+<div class="modal fade" id="addChapterModal"><div class="modal-dialog"><div class="modal-content"><form method="POST" action="/admin/chuong"><div class="modal-header"><h5>Thêm chương</h5></div><div class="modal-body"><input type="hidden" name="course_id" value="<%=course.id%>"><input name="title" class="form-control" placeholder="Tên chương" required></div><div class="modal-footer"><button class="btn btn-primary">Thêm</button></div></form></div></div></div>
+<div class="modal fade" id="editChapterModal"><div class="modal-dialog"><div class="modal-content"><form method="POST" id="editChapterForm"><div class="modal-header"><h5>Sửa chương</h5></div><div class="modal-body"><input type="hidden" name="course_id" value="<%=course.id%>"><input name="title" id="editChapterTitle" class="form-control" required></div><div class="modal-footer"><button class="btn btn-primary">Lưu</button></div></form></div></div></div>
+<div class="modal fade" id="addLessonModal"><div class="modal-dialog"><div class="modal-content"><form method="POST" action="/admin/bai-hoc"><div class="modal-header"><h5>Thêm bài học</h5></div><div class="modal-body"><input type="hidden" name="course_id" value="<%=course.id%>"><input type="hidden" name="chapter_id" id="lessonChapterId"><input name="title" class="form-control mb-2" placeholder="Tên bài học" required><textarea name="content" class="form-control mb-2" rows="3" placeholder="Mô tả/nội dung bài"></textarea><label class="form-check"><input type="checkbox" name="is_preview" class="form-check-input"> Cho học thử miễn phí</label></div><div class="modal-footer"><button class="btn btn-primary">Thêm bài</button></div></form></div></div></div>
+<div class="modal fade" id="editLessonModal"><div class="modal-dialog"><div class="modal-content"><form method="POST" id="editLessonForm"><div class="modal-header"><h5>Sửa bài học</h5></div><div class="modal-body"><input type="hidden" name="course_id" value="<%=course.id%>"><input name="title" id="editLessonTitle" class="form-control mb-2" required><textarea name="content" id="editLessonContent" class="form-control mb-2" rows="4"></textarea><label class="form-check"><input type="checkbox" name="is_preview" id="editLessonPreview" class="form-check-input"> Cho học thử miễn phí</label></div><div class="modal-footer"><button class="btn btn-primary">Lưu</button></div></form></div></div></div>
+<div class="modal fade" id="addVideoModal"><div class="modal-dialog"><div class="modal-content"><form method="POST" action="/admin/video" enctype="multipart/form-data"><div class="modal-header"><h5>Thêm video bài học</h5></div><div class="modal-body"><input type="hidden" name="course_id" value="<%=course.id%>"><input type="hidden" name="lesson_id" id="videoLessonId"><input name="title" class="form-control mb-2" placeholder="Tên video" required><select name="source_type" class="form-select mb-2" id="videoSourceType"><option value="youtube">YouTube</option><option value="vimeo">Vimeo</option><option value="drive">Google Drive</option><option value="upload">Upload MP4</option></select><input name="source_value" class="form-control mb-2" placeholder="Dán link video"><input type="file" name="video_file" id="videoFile" class="form-control d-none" accept="video/mp4"><div class="row g-2"><div class="col-md-7"><label class="form-label small">Thời lượng (giây, tùy chọn)</label><input type="number" name="duration_seconds" min="0" class="form-control" placeholder="Ví dụ 3600"></div><div class="col-md-5 d-flex align-items-end"><label class="form-check"><input type="checkbox" name="is_free" class="form-check-input"> Miễn phí</label></div></div></div><div class="modal-footer"><button class="btn btn-primary">Thêm video</button></div></form></div></div></div>
+<div class="modal fade" id="addFileModal"><div class="modal-dialog"><div class="modal-content"><form method="POST" action="/admin/tai-lieu" enctype="multipart/form-data"><div class="modal-header"><h5>Thêm tài liệu</h5></div><div class="modal-body"><input type="hidden" name="course_id" value="<%=course.id%>"><input type="hidden" name="lesson_id" id="fileLessonId"><input name="title" class="form-control mb-2" placeholder="Tên tài liệu" required><input type="file" name="file" class="form-control mb-2" accept=".pdf,.doc,.docx,.zip"><input name="file_url_link" class="form-control mb-2" placeholder="Hoặc link Drive/PDF"><label class="form-check"><input type="checkbox" name="is_free" class="form-check-input"> Cho xem miễn phí</label></div><div class="modal-footer"><button class="btn btn-primary">Thêm tài liệu</button></div></form></div></div></div>
 <script>
-document.getElementById('addLessonModal').addEventListener('show.bs.modal', e => {
-  document.getElementById('lessonChapterId').value = e.relatedTarget.dataset.chapter;
-});
-document.getElementById('addVideoModal').addEventListener('show.bs.modal', e => {
-  document.getElementById('videoLessonId').value = e.relatedTarget.dataset.lesson;
-});
-document.getElementById('addFileModal').addEventListener('show.bs.modal', e => {
-  document.getElementById('fileLessonId').value = e.relatedTarget.dataset.lesson;
-});
-document.getElementById('videoSourceType').addEventListener('change', e => {
-  const isUpload = e.target.value === 'upload';
-  document.getElementById('videoUrlField').classList.toggle('d-none', isUpload);
-  document.getElementById('videoFileField').classList.toggle('d-none', !isUpload);
-});
-
-// Keo tha sap xep chuong
-new Sortable(document.getElementById('chapterList'), {
-  handle: '.chapter-handle',
-  animation: 150,
-  onEnd: () => {
-    const ids = [...document.querySelectorAll('#chapterList > div')].map(el => el.dataset.id);
-    fetch('/admin/chuong/sap-xep', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ids }) });
-  }
-});
-// Keo tha sap xep bai hoc trong tung chuong
-document.querySelectorAll('.lesson-list').forEach(list => {
-  new Sortable(list, {
-    handle: '.lesson-handle',
-    animation: 150,
-    onEnd: () => {
-      const ids = [...list.querySelectorAll('li')].map(el => el.dataset.id);
-      fetch('/admin/bai-hoc/sap-xep', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ids }) });
-    }
-  });
-});
+const editCh=document.getElementById('editChapterModal');editCh.addEventListener('show.bs.modal',e=>{const b=e.relatedTarget;document.getElementById('editChapterTitle').value=b.dataset.title;document.getElementById('editChapterForm').action='/admin/chuong/'+b.dataset.id});
+document.getElementById('addLessonModal').addEventListener('show.bs.modal',e=>document.getElementById('lessonChapterId').value=e.relatedTarget.dataset.chapter);
+document.getElementById('editLessonModal').addEventListener('show.bs.modal',e=>{const b=e.relatedTarget;document.getElementById('editLessonForm').action='/admin/bai-hoc/'+b.dataset.id;document.getElementById('editLessonTitle').value=b.dataset.title;document.getElementById('editLessonContent').value=b.dataset.content;document.getElementById('editLessonPreview').checked=b.dataset.preview==='1'});
+document.getElementById('addVideoModal').addEventListener('show.bs.modal',e=>document.getElementById('videoLessonId').value=e.relatedTarget.dataset.lesson);document.getElementById('addFileModal').addEventListener('show.bs.modal',e=>document.getElementById('fileLessonId').value=e.relatedTarget.dataset.lesson);
+document.getElementById('videoSourceType').addEventListener('change',e=>{document.getElementById('videoFile').classList.toggle('d-none',e.target.value!=='upload')});
+new Sortable(document.getElementById('chapterList'),{handle:'.chapter-handle',animation:150,onEnd:()=>fetch('/admin/chuong/sap-xep',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:[...document.querySelectorAll('#chapterList>.chapter-card')].map(x=>x.dataset.id)})})});
+document.querySelectorAll('.lesson-list').forEach(list=>new Sortable(list,{handle:'.lesson-handle',animation:150,onEnd:()=>fetch('/admin/bai-hoc/sap-xep',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:[...list.querySelectorAll(':scope>.list-group-item')].map(x=>x.dataset.id)})})}));
+document.querySelectorAll('.resource-list').forEach(list=>new Sortable(list,{handle:'.video-handle',animation:150,onEnd:()=>fetch('/admin/video/sap-xep',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:[...list.querySelectorAll('[data-id]')].map(x=>x.dataset.id)})})}));
 </script>
 <%- include('../../partials/admin-footer') %>
