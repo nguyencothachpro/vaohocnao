@@ -1,0 +1,1 @@
+const express=require('express');const router=express.Router();const c=require('../controllers/bookQuizController');const {requireLogin}=require('../middleware/auth');router.get('/sach/hoc/:lessonId/tu-luyen',requireLogin,c.take);router.post('/sach/hoc/:lessonId/tu-luyen',requireLogin,c.submit);module.exports=router;
