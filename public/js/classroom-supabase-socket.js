@@ -1,74 +1,27 @@
 (() => {
-  // Socket.IO-compatible adapter backed by Supabase Realtime.
-  // Keeps classroom.js and classroom-permissions.js unchanged on Vercel.
-  const C = window.CLASSROOM || {};
-  const handlers = new Map();
-  const pending = [];
-  const grants = new Set();
-  const clientId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now());
-
-  const socket = {
-    id: clientId,
-    on(event, fn) { if (!handlers.has(event)) handlers.set(event, []); handlers.get(event).push(fn); return socket; },
-    emit(event, payload = {}) { if (event === 'classroom:join') return join(payload); if (!channelReady) { pending.push([event, payload]); return true; } return routeEmit(event, payload); },
-    off(event, fn) { const list = handlers.get(event) || []; handlers.set(event, list.filter(x => x !== fn)); return socket; }
-  };
-
-  function fire(event, payload) { (handlers.get(event) || []).slice().forEach(fn => { try { fn(payload); } catch (e) { console.error('[classroom realtime]', event, e); } }); }
-  let channel = null, channelReady = false, joined = false;
-  let selfInfo = { id: clientId, userId: C.currentUserId || null, user: C.currentUser || 'Thành viên', role: C.isTeacher ? 'teacher' : 'student' };
-  const userKey = id => id == null ? '' : String(id);
-
-  async function getConfig() {
-    const r = await fetch('/api/realtime-config', { credentials: 'same-origin', cache: 'no-store' });
-    if (!r.ok) throw new Error('Không lấy được cấu hình realtime');
-    const cfg = await r.json();
-    if (!cfg.enabled) throw new Error('Vercel chưa được cấu hình Supabase Realtime');
-    return cfg;
-  }
-  function presenceList() {
-    if (!channel) return [];
-    const state = channel.presenceState(), list = [];
-    Object.keys(state || {}).forEach(key => (state[key] || []).forEach(item => list.push({ ...item, canWrite: C.isTeacher ? item.role === 'teacher' : grants.has(userKey(item.userId)) })));
-    return list;
-  }
-  function syncPresence() { const list = presenceList(); fire('classroom:presence', { count: list.length }); fire('classroom:presence-list', list); }
-  function applyGrant(userId, allow) { const key=userKey(userId); if(!key)return; if(allow)grants.add(key);else grants.delete(key); if(C.currentUserId&&userKey(C.currentUserId)===key)fire('classroom:write-status',{userId,allow}); syncPresence(); }
-
-  async function setupChannel(room) {
-    const cfg = await getConfig();
-    const client = window.supabase.createClient(cfg.url, cfg.key, { auth: { persistSession:false, autoRefreshToken:false, detectSessionInUrl:false } });
-    channel = client.channel('classroom:' + String(room).toUpperCase(), { config:{ broadcast:{self:false,ack:false}, presence:{key:clientId} } });
+  const C=window.CLASSROOM||{},handlers=new Map(),pending=[],grants=new Set();
+  const clientId=crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now();
+  const socket={id:clientId,on(e,fn){if(!handlers.has(e))handlers.set(e,[]);handlers.get(e).push(fn);return socket},emit(e,p={}){if(e==='classroom:join')return join(p);if(!channelReady){pending.push([e,p]);return true}return routeEmit(e,p)},off(e,fn){handlers.set(e,(handlers.get(e)||[]).filter(x=>x!==fn));return socket}};
+  const fire=(e,p)=>(handlers.get(e)||[]).slice().forEach(fn=>{try{fn(p)}catch(err){console.error('[classroom realtime]',e,err)}});
+  let channel=null,channelReady=false,joined=false;let selfInfo={id:clientId,userId:C.currentUserId||null,user:C.currentUser||'Thành viên',role:C.isTeacher?'teacher':'student'};
+  const userKey=id=>id==null?'':String(id);
+  async function getConfig(){const r=await fetch('/api/realtime-config',{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw new Error('Không lấy được cấu hình realtime');const cfg=await r.json();if(!cfg.enabled)throw new Error('Vercel chưa được cấu hình Supabase Realtime');return cfg}
+  function presenceList(){if(!channel)return[];const state=channel.presenceState(),list=[];Object.keys(state||{}).forEach(k=>(state[k]||[]).forEach(item=>list.push({...item,canWrite:C.isTeacher?item.role==='teacher':grants.has(userKey(item.userId))})));return list}
+  function syncPresence(){const list=presenceList();fire('classroom:presence',{count:list.length});fire('classroom:presence-list',list)}
+  function applyGrant(userId,allow){const key=userKey(userId);if(!key)return;if(allow)grants.add(key);else grants.delete(key);if(C.currentUserId&&userKey(C.currentUserId)===key)fire('classroom:write-status',{userId,allow});syncPresence()}
+  async function setupChannel(room){
+    const cfg=await getConfig();const client=window.supabase.createClient(cfg.url,cfg.key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+    channel=client.channel('classroom:'+String(room).toUpperCase(),{config:{broadcast:{self:false,ack:false},presence:{key:clientId}}});
     channel.on('presence',{event:'sync'},syncPresence);
-    channel.on('presence',{event:'join'},({newPresences})=>{ syncPresence(); (newPresences||[]).forEach(p=>{if(p.id!==clientId)fire('classroom:peer-joined',p);if(C.isTeacher&&grants.size)send('classroom:permissions-state',{grants:Array.from(grants)});}); });
-    channel.on('presence',{event:'leave'},({leftPresences})=>{ syncPresence(); (leftPresences||[]).forEach(p=>fire('classroom:peer-left',{id:p.id})); });
+    channel.on('presence',{event:'join'},({newPresences})=>{syncPresence();(newPresences||[]).forEach(p=>{if(p.id!==clientId)fire('classroom:peer-joined',p);if(C.isTeacher&&grants.size)send('classroom:permissions-state',{grants:Array.from(grants)})})});
+    channel.on('presence',{event:'leave'},({leftPresences})=>{syncPresence();(leftPresences||[]).forEach(p=>fire('classroom:peer-left',{id:p.id}))});
     const events=['classroom:board','classroom:clear','classroom:page','classroom:material-open','classroom:chat','classroom:teacher-stream','classroom:request-stream','classroom:write-request','classroom:write-grant','classroom:write-revoke-all','classroom:write-status','classroom:permissions','classroom:permissions-state','classroom:question-mode','classroom:question','webrtc:offer','webrtc:answer','webrtc:ice'];
-    events.forEach(event=>channel.on('broadcast',{event},({payload})=>{
-      if(!payload||payload.senderId===clientId)return;
-      if((event==='webrtc:offer'||event==='webrtc:answer'||event==='webrtc:ice')&&payload.to&&payload.to!==clientId)return;
-      if(event==='classroom:write-status')applyGrant(payload.userId,payload.allow);
-      if(event==='classroom:write-revoke-all'){grants.clear();if(!C.isTeacher)fire('classroom:write-revoke-all');syncPresence();}
-      if(event==='classroom:permissions-state'){grants.clear();(payload.grants||[]).forEach(id=>grants.add(userKey(id)));if(C.currentUserId)fire('classroom:write-status',{userId:C.currentUserId,allow:grants.has(userKey(C.currentUserId))});syncPresence();}
-      fire(event,payload);
-    }));
-    await new Promise((resolve,reject)=>channel.subscribe(status=>{if(status==='SUBSCRIBED')resolve();if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')reject(new Error('Supabase Realtime: '+status));}));
-    channelReady=true; await channel.track(selfInfo); syncPresence(); fire('classroom:permissions',{canWrite:!!C.isTeacher,isTeacher:!!C.isTeacher});
-    while(pending.length){const [event,payload]=pending.shift();routeEmit(event,payload);}
+    events.forEach(event=>channel.on('broadcast',{event},({payload})=>{if(!payload||payload.senderId===clientId)return;if((event==='webrtc:offer'||event==='webrtc:answer'||event==='webrtc:ice')&&payload.to&&payload.to!==clientId)return;if(event==='classroom:write-status')applyGrant(payload.userId,payload.allow);if(event==='classroom:write-revoke-all'){grants.clear();if(!C.isTeacher)fire('classroom:write-revoke-all');syncPresence()}if(event==='classroom:permissions-state'){grants.clear();(payload.grants||[]).forEach(id=>grants.add(userKey(id)));if(C.currentUserId)fire('classroom:write-status',{userId:C.currentUserId,allow:grants.has(userKey(C.currentUserId))});syncPresence()}if(event.startsWith('webrtc:')&&!payload.from)payload={...payload,from:payload.senderId};fire(event,payload)}));
+    await new Promise((resolve,reject)=>channel.subscribe(status=>{if(status==='SUBSCRIBED')resolve();if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')reject(new Error('Supabase Realtime: '+status))}));
+    channelReady=true;await channel.track(selfInfo);syncPresence();fire('classroom:permissions',{canWrite:!!C.isTeacher,isTeacher:!!C.isTeacher});while(pending.length){const[e,p]=pending.shift();routeEmit(e,p)}
   }
-
-  async function join(payload) {
-    if(joined)return; joined=true;
-    selfInfo={id:clientId,userId:payload.userId||C.currentUserId||null,user:payload.user||C.currentUser||'Thành viên',role:payload.role||(C.isTeacher?'teacher':'student')};
-    try{await setupChannel(payload.room||C.room);if(!C.isTeacher)socket.emit('classroom:request-stream',{id:clientId});}
-    catch(e){console.error(e);const el=document.getElementById('presenceText');if(el)el.textContent='Realtime chưa sẵn sàng: '+e.message;}
-  }
-  function send(event,payload){if(!channel)return;channel.send({type:'broadcast',event,payload:{...payload,senderId:clientId,senderUserId:selfInfo.userId,senderUser:selfInfo.user}}).catch(e=>console.error('[classroom realtime send]',event,e));}
-  function routeEmit(event,payload={}){
-    if(event==='classroom:chat'){fire(event,{...payload,user:payload.user||selfInfo.user,senderId:clientId,senderUserId:selfInfo.userId,at:Date.now()});return send(event,payload);}
-    if(event==='classroom:write-request')return send(event,{userId:payload.userId||selfInfo.userId,user:payload.user||selfInfo.user});
-    if(event==='classroom:write-grant'){applyGrant(payload.userId,payload.allow);return send('classroom:write-status',payload);}
-    if(event==='classroom:write-revoke-all'){grants.clear();syncPresence();return send(event,{});}
-    return send(event,payload);
-  }
-  window.io=function(){return socket}; window.classroomSocket=socket;
+  async function join(payload){if(joined)return;joined=true;selfInfo={id:clientId,userId:payload.userId||C.currentUserId||null,user:payload.user||C.currentUser||'Thành viên',role:payload.role||(C.isTeacher?'teacher':'student')};try{await setupChannel(payload.room||C.room);if(!C.isTeacher)socket.emit('classroom:request-stream',{id:clientId})}catch(e){console.error(e);const el=document.getElementById('presenceText');if(el)el.textContent='Realtime chưa sẵn sàng: '+e.message}}
+  function send(event,payload){if(!channel)return;channel.send({type:'broadcast',event,payload:{...payload,senderId:clientId,senderUserId:selfInfo.userId,senderUser:selfInfo.user}}).catch(e=>console.error('[classroom realtime send]',event,e))}
+  function routeEmit(event,payload={}){if(event==='classroom:chat'){fire(event,{...payload,user:payload.user||selfInfo.user,senderId:clientId,senderUserId:selfInfo.userId,at:Date.now()});return send(event,payload)}if(event==='classroom:write-request')return send(event,{userId:payload.userId||selfInfo.userId,user:payload.user||selfInfo.user});if(event==='classroom:write-grant'){applyGrant(payload.userId,payload.allow);return send('classroom:write-status',payload)}if(event==='classroom:write-revoke-all'){grants.clear();syncPresence();return send(event,{})}return send(event,payload)}
+  window.io=()=>socket;window.classroomSocket=socket;
 })();
