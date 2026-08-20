@@ -1,0 +1,48 @@
+<% var pageTitle = 'Tạo đề thi mới' %>
+<%- include('../../partials/admin-header') %>
+<div class="card p-4" style="max-width:500px">
+  <form method="POST" action="/admin/phong-thi">
+    <div class="mb-3"><label class="form-label">Tên đề thi</label>
+      <input name="title" class="form-control" placeholder="Vd: Đề thi thử Toán 10 - Học kỳ I" required></div>
+    <div class="mb-3"><label class="form-label">Danh mục (Lớp/Môn, tùy chọn)</label>
+      <select name="category_id" class="form-select">
+        <option value="">-- Không chọn --</option>
+        <% function renderCat(cats, depth) { %>
+          <% cats.forEach(c => { %>
+            <option value="<%= c.id %>"><%= '\u00A0\u00A0\u00A0\u00A0'.repeat(depth) %><%= depth>0?'↳ ':'' %><%= c.name %></option>
+            <% if (c.children && c.children.length) renderCat(c.children, depth+1) %>
+          <% }) %>
+        <% } %>
+        <% renderCat(categories, 0) %>
+      </select>
+    </div>
+    <div class="mb-3"><label class="form-label">Điểm tối thiểu để đạt</label>
+      <input type="number" step="0.1" name="pass_score" class="form-control" value="5" min="0"></div>
+
+    <div class="mb-3"><label class="form-label">Giới hạn thời gian làm bài (phút, để trống = không giới hạn)</label>
+      <input type="number" name="time_limit_minutes" class="form-control" placeholder="Vd: 45"></div>
+
+    <div class="mb-3">
+      <div class="form-check">
+        <input type="checkbox" name="shuffle_questions" class="form-check-input" id="shuffleQ">
+        <label class="form-check-label" for="shuffleQ">Trộn thứ tự câu hỏi mỗi lượt thi (chống quay cóp)</label>
+      </div>
+      <div class="form-check">
+        <input type="checkbox" name="shuffle_answers" class="form-check-input" id="shuffleA">
+        <label class="form-check-label" for="shuffleA">Trộn thứ tự đáp án (chỉ áp dụng câu trắc nghiệm 1 đáp án)</label>
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Ai được thi</label>
+      <select name="visibility" class="form-select">
+        <option value="public">Công khai — ai đăng nhập cũng thi được (hiện trong Thực chiến phòng thi)</option>
+        <option value="assigned">Giao riêng — chỉ học viên được chỉ định mới thi được (giao sau khi tạo xong)</option>
+      </select>
+    </div>
+
+    <button class="btn btn-primary">Tạo đề thi</button>
+    <a href="/admin/phong-thi" class="btn btn-outline-secondary">Hủy</a>
+  </form>
+</div>
+<%- include('../../partials/admin-footer') %>

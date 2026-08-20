@@ -1,0 +1,34 @@
+<% var pageTitle = 'Mã kích hoạt' %>
+<%- include('../partials/admin-header') %>
+<div class="alert alert-info small">
+  Mỗi mã có thể mở <b>khóa học</b>, <b>sách</b> hoặc <b>sách đọc online</b>. Với khóa học, hạn mã sẽ trở thành <b>hạn học</b> của học viên; Admin có thể gia hạn sau.
+</div>
+<div class="card p-3 mb-3">
+<form method="POST" action="/admin/ma-kich-hoat" class="row g-2 align-items-end">
+  <div class="col-md-3"><label class="form-label">Loại sản phẩm</label>
+    <select name="product_type" id="productType" class="form-select">
+      <option value="course">Khóa học</option><option value="book">Sách</option><option value="online_book">Đọc sách online</option>
+    </select>
+  </div>
+  <div class="col-md-3" id="courseBox"><label class="form-label">Khóa học</label><select name="course_id" class="form-select"><% courses.forEach(c=>{ %><option value="<%=c.id%>"><%=c.title%></option><% }) %></select></div>
+  <div class="col-md-3 d-none" id="bookBox"><label class="form-label">Sách</label><select name="book_id" class="form-select"><% if (typeof books!=='undefined') books.forEach(b=>{ %><option value="<%=b.id%>"><%=b.title%></option><% }) %></select></div>
+  <div class="col-md-3 d-none" id="onlineBox"><label class="form-label">Đọc online</label><select name="online_book_id" class="form-select"><% if (typeof onlineBooks!=='undefined') onlineBooks.forEach(b=>{ %><option value="<%=b.id%>"><%=b.title%></option><% }) %></select></div>
+  <div class="col-md-2"><label class="form-label">Số lượng</label><input name="quantity" type="number" class="form-control" value="10" min="1" max="200"></div>
+  <div class="col-md-2"><label class="form-label">Hạn (ngày)</label><input name="expiry_days" type="number" class="form-control" placeholder="Trống = vô hạn"></div>
+  <div class="col-md-2"><button class="btn btn-primary w-100">Tạo mã</button></div>
+</form>
+</div>
+<div class="card p-3">
+<table class="table"><thead><tr><th>Mã</th><th>Sản phẩm</th><th>Trạng thái</th><th>Hạn</th><th></th></tr></thead><tbody>
+<% codes.forEach(c=>{ let st=!c.is_active?'vo_hieu_hoa':(c.is_used?'da_dung':(c.expires_at&&new Date(c.expires_at)<new Date()?'het_han':'chua_dung')); %>
+<tr><td><code><%=c.code%></code></td><td><%=c.product_title||c.product_type||'—'%></td><td>
+<% if(st==='chua_dung'){%><span class="badge bg-success">Chưa dùng</span><%}else if(st==='da_dung'){%><span class="badge bg-secondary">Đã dùng</span><%}else if(st==='het_han'){%><span class="badge bg-danger">Hết hạn</span><%}else{%><span class="badge bg-dark">Vô hiệu hóa</span><%}%>
+</td><td><%=c.expires_at?formatDate(c.expires_at):'Vô hạn'%></td><td>
+<% if(st!=='da_dung'){%><form method=post action="/admin/ma-kich-hoat/<%=c.id%>/vo-hieu-hoa" class="d-inline"><button class="btn btn-sm btn-outline-warning">Vô hiệu</button></form><form method=post action="/admin/ma-kich-hoat/<%=c.id%>/xoa" class="d-inline"><button class="btn btn-sm btn-outline-danger">Xóa</button></form><%}%>
+</td></tr>
+<%})%></tbody></table></div>
+<script>
+const t=document.getElementById('productType'), boxes={course:document.getElementById('courseBox'),book:document.getElementById('bookBox'),online_book:document.getElementById('onlineBox')};
+function sync(){Object.values(boxes).forEach(x=>x.classList.add('d-none'));boxes[t.value].classList.remove('d-none')} t.addEventListener('change',sync);sync();
+</script>
+<%- include('../partials/admin-footer') %>

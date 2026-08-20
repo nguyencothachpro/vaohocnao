@@ -1,0 +1,19 @@
+<% var pageTitle = 'Tin tức' %>
+<%- include('../../partials/admin-header') %>
+<div class="d-flex justify-content-end mb-3"><a href="/admin/tin-tuc/them-moi" class="btn btn-primary btn-sm">+ Viết bài mới</a></div>
+<div class="card p-3">
+  <table class="table">
+    <thead><tr><th>Tiêu đề</th><th>Tác giả</th><th>Ngày</th><th>Trạng thái</th><th></th></tr></thead>
+    <tbody>
+      <% news.forEach(n => { %>
+        <tr>
+          <td><%= n.title %></td><td><%= n.author_name || '-' %></td><td><%= formatDate(n.created_at) %></td>
+          <td><span class="badge bg-<%= n.is_published ? 'success' : 'secondary' %>"><%= n.is_published ? 'Đã đăng' : 'Nháp' %></span></td>
+          <td><form method="POST" action="/admin/tin-tuc/<%= n.id %>/xoa" onsubmit="return confirm('Xóa bài viết?')"><button class="btn btn-sm btn-outline-danger">Xóa</button></form></td>
+        </tr>
+      <% }) %>
+      <% if (news.length === 0) { %><tr><td colspan="5" class="text-center text-muted">Chưa có bài viết nào.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/admin-footer') %>

@@ -1,0 +1,308 @@
+<% var pageTitle = 'Đọc: ' + book.title %>
+<%- include('partials/header') %>
+
+<div class="text-center mb-3">
+  <h5 class="fw-bold mb-0"><%= book.title %></h5>
+  <div class="small text-muted">Bấm vào mép trang hoặc dùng nút để lật trang</div>
+</div>
+
+<div class="d-flex justify-content-center mb-3">
+  <div class="flipbook-wrapper">
+    <div id="flipbook"></div>
+    <div id="tocPanel" class="d-none" style="position:absolute; top:0; left:0; bottom:0; width:300px; max-width:85vw; background:#fff; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.25); z-index:20; overflow-y:auto; padding:0;">
+      <div class="d-flex justify-content-between align-items-center px-3 py-2" style="border-bottom:1px solid #eee; position:sticky; top:0; background:#fff;">
+        <b class="small text-uppercase" style="letter-spacing:.03em; color:#555">Mục lục</b>
+        <button type="button" id="tocCloseBtn" class="btn-close btn-sm" aria-label="Đóng"></button>
+      </div>
+      <div id="tocList" class="text-muted small p-3">Đang nhận diện mục lục...</div>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex justify-content-center gap-2 mb-4">
+  <button id="tocToggleBtn" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-list"></i> Mục lục</button>
+  <button id="prevBtn" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-arrow-left"></i> Trang trước</button>
+  <button id="nextBtn" class="btn btn-outline-secondary btn-sm">Trang sau <i class="fa-solid fa-arrow-right"></i></button>
+</div>
+
+<% if (mode === 'chapters') { %>
+<div id="pageSource" class="d-none">
+  <% chapters.forEach((c, i) => { %>
+    <div class="storypage" data-density="hard">
+      <div class="storypage-inner">
+        <h6 class="fw-bold mb-2">Chương <%= i+1 %>: <%= c.title %></h6>
+        <% if (c.unlocked) { %>
+          <div class="storypage-content"><%- c.content %></div>
+        <% } else { %>
+          <div class="text-center py-5">
+            <i class="fa-solid fa-lock fa-2x text-muted mb-3"></i>
+            <p class="text-muted">Chương này cần mua sách mới đọc được.</p>
+            <a href="/doc-sach-online/<%= book.slug %>" class="btn btn-primary btn-sm">Xem thông tin mua sách</a>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  <% }) %>
+</div>
+<% } else { %>
+<div id="pdfLoading" class="text-center text-muted py-5">
+  <div class="spinner-border spinner-border-sm mb-2"></div>
+  <div>Đang tải sách...</div>
+</div>
+<% } %>
+
+<style>
+  .flipbook-wrapper{ position:relative; width:100%; max-width:1100px; margin:0 auto; }
+  #flipbook{ box-shadow:0 10px 30px rgba(0,0,0,.2); width:100%; margin:0 auto; }
+  .storypage{ background:#fdfaf3; width:100%; height:100%; overflow:hidden; }
+  .storypage-inner{ padding:24px; height:100%; overflow-y:auto; font-size:.95rem; line-height:1.7; }
+  .storypage.pdfpage{ display:flex; align-items:center; justify-content:center; background:#fff; }
+  .storypage.pdfpage canvas{ width:100%; height:100%; display:block; }
+  .toc-item{ display:block; width:100%; text-align:left; background:none; border:0; padding:7px 12px; color:#222; font-size:.86rem; line-height:1.35; }
+  .toc-item:hover{ background:#f4f4f6; }
+  .toc-item.locked{ color:#b3b3b3; }
+  .toc-item .fa-lock{ font-size:.68rem; margin-left:5px; }
+  .toc-item.toc-level-0{ font-weight:700; color:#1a1a1a; margin-top:4px; padding-top:10px; border-top:1px solid #f0f0f0; }
+  .toc-item.toc-level-0:first-child{ border-top:0; margin-top:0; }
+  .toc-item.toc-level-1{ font-weight:400; color:#555; font-size:.82rem; }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
+
+<script>
+  // Dung chung cho ca 2 che do doc (pdf / chapters): dieu khien mo/dong bang muc luc
+  const tocPanel = document.getElementById('tocPanel');
+  document.getElementById('tocToggleBtn').addEventListener('click', () => tocPanel.classList.toggle('d-none'));
+  document.getElementById('tocCloseBtn').addEventListener('click', () => tocPanel.classList.add('d-none'));
+
+  // entries: [{ title, pageIndex, locked, level }]
+  function renderTocList(entries, onJump, buySlug) {
+    const listEl = document.getElementById('tocList');
+    if (!entries.length) {
+      listEl.innerHTML = '<div class="text-muted">Không nhận diện được mục lục cho sách này.</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    entries.forEach(entry => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const level = Math.min(entry.level || 0, 1);
+      btn.className = 'toc-item toc-level-' + level + (entry.locked ? ' locked' : '');
+      btn.style.paddingLeft = (12 + level * 16) + 'px';
+      btn.innerHTML = entry.title + (entry.locked ? ' <i class="fa-solid fa-lock"></i>' : '');
+      btn.addEventListener('click', () => {
+        tocPanel.classList.add('d-none');
+        if (entry.locked) { window.location.href = buySlug; return; }
+        onJump(entry.pageIndex);
+      });
+      listEl.appendChild(btn);
+    });
+  }
+
+  // Tinh kich thuoc khung doc theo dung khong gian man hinh thuc te, giu dung ty le
+  // (aspectRatio = chieu cao / chieu rong that cua trang). Duoc dung chung cho ca 2 che do doc.
+  function computeFlipSize(aspectRatio) {
+    const wrapperTop = document.querySelector('.flipbook-wrapper').getBoundingClientRect().top;
+    const controlsAndMargins = 170; // khong gian danh cho nut dieu khien + le duoi trang
+    const availW = Math.min(window.innerWidth - 32, 1100);
+    const availH = Math.max(window.innerHeight - wrapperTop - controlsAndMargins, 380);
+    let width = availW;
+    let height = width * aspectRatio;
+    if (height > availH) { height = availH; width = height / aspectRatio; }
+    width = Math.max(280, Math.round(width));
+    height = Math.max(360, Math.round(height));
+    return { width, height };
+  }
+</script>
+
+<% if (mode === 'chapters') { %>
+<script>
+  const pageEls = document.querySelectorAll('#pageSource .storypage');
+  const flipbookEl = document.getElementById('flipbook');
+  const { width: cWidth, height: cHeight } = computeFlipSize(1.42); // ty le trang sach pho thong (~A4 doc)
+  const pageFlip = new St.PageFlip(flipbookEl, {
+    width: cWidth,
+    height: cHeight,
+    size: 'stretch',
+    minWidth: 280, maxWidth: 1100, minHeight: 380, maxHeight: 1500,
+    showCover: true,
+    maxShadowOpacity: 0.5
+  });
+  pageFlip.loadFromHTML(pageEls);
+
+  document.getElementById('prevBtn').addEventListener('click', () => pageFlip.flipPrev());
+  document.getElementById('nextBtn').addEventListener('click', () => pageFlip.flipNext());
+
+  // che do 'stretch' tu dong co giam theo chieu rong khung cha (.flipbook-wrapper, von
+  // da co width theo % man hinh) - o day chi can bao no ve lai trang hien tai cho khop.
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => pageFlip.update(), 200);
+  });
+
+  // Muc luc lay thang tu danh sach chuong da co san (khong can tu nhan dien)
+  const chapterEntries = <%- JSON.stringify(chapters.map((c, i) => ({ title: 'Chương ' + (i + 1) + ': ' + c.title, pageIndex: i, locked: !c.unlocked }))) %>;
+  renderTocList(chapterEntries, (i) => pageFlip.flip(i), '/doc-sach-online/<%= book.slug %>');
+</script>
+<% } else { %>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(async function () {
+  const flipbookEl = document.getElementById('flipbook');
+  const loadingEl = document.getElementById('pdfLoading');
+  const unlocked = <%- unlocked ? 'true' : 'false' %>;
+  const bookSlug = <%- JSON.stringify(book.slug) %>;
+  const buySlug = '/doc-sach-online/' + bookSlug;
+  // Muc luc go tay tu trang quan tri (uu tien dung neu co, thay vi tu nhan dien)
+  const manualToc = <%- JSON.stringify((manualToc || []).map(e => ({ title: e.title, pageNumber: e.page_number }))) %>;
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  // Nhan dien tieu de chuong trong van ban 1 trang (dung chung dau hieu voi bo tach chuong tu file Word/PDF)
+  const chapterHeadingRegex = /^(Chương|CHƯƠNG|Phần|PHẦN|Hồi|HỒI)\s+[\dIVXLCM]+[\.\:\-\s]?.{0,80}$/;
+  function findHeadingOnPage(textItems) {
+    // Chi xet vai dong dau trang (tieu de chuong thuong nam tren cung)
+    const lines = [];
+    let current = '';
+    for (const it of textItems) {
+      current += it.str;
+      if (it.hasEOL) { lines.push(current.trim()); current = ''; if (lines.length >= 6) break; }
+    }
+    if (current.trim()) lines.push(current.trim());
+    for (const line of lines.slice(0, 6)) {
+      if (line.length > 2 && line.length < 90 && chapterHeadingRegex.test(line)) return line;
+    }
+    return null;
+  }
+
+  try {
+    const loadingTask = pdfjsLib.getDocument('/doc-sach-online/' + bookSlug + '/file');
+    const pdf = await loadingTask.promise;
+    const totalPages = pdf.numPages;
+    const previewLimit = 3; // so trang xem thu neu sach chua duoc mua
+    const pagesToRender = unlocked ? totalPages : Math.min(previewLimit, totalPages);
+
+    const container = document.createElement('div');
+    container.style.display = 'none';
+
+    // Lay ty le that (cao/rong) tu chinh trang PDF dau tien, roi tinh kich thuoc khung doc
+    // vua khit man hinh hien tai (khong con bi gioi han o muc 420x600 nhu truoc).
+    const firstPageViewport = (await pdf.getPage(1)).getViewport({ scale: 1 });
+    const pdfAspectRatio = firstPageViewport.height / firstPageViewport.width;
+    const { width: targetWidth, height: targetHeight } = computeFlipSize(pdfAspectRatio);
+    const tocEntries = [];
+    for (let i = 1; i <= pagesToRender; i++) {
+      const page = await pdf.getPage(i);
+      const baseViewport = page.getViewport({ scale: 1 });
+      const scale = (targetWidth * 2) / baseViewport.width; // *2 cho net tren man hinh Retina
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+      const pageDiv = document.createElement('div');
+      pageDiv.className = 'storypage pdfpage';
+      pageDiv.setAttribute('data-density', (i === 1 || i === pagesToRender) ? 'hard' : 'soft');
+      pageDiv.appendChild(canvas);
+      container.appendChild(pageDiv);
+
+      if (manualToc.length === 0) {
+        try {
+          const textContent = await page.getTextContent();
+          const heading = findHeadingOnPage(textContent.items);
+          if (heading) tocEntries.push({ title: heading, pageIndex: i - 1, locked: false, level: 0 });
+        } catch (e) { /* khong sao neu trang khong doc duoc text (anh scan...) */ }
+      }
+    }
+
+    if (manualToc.length > 0) {
+      // Uu tien tuyet doi muc luc go tay tu trang quan tri: bo qua het cac buoc tu nhan dien ben duoi.
+      manualToc.forEach(e => {
+        const pageIndex = Math.max(0, (e.pageNumber || 1) - 1);
+        tocEntries.push({ title: e.title, pageIndex, locked: !unlocked && pageIndex >= pagesToRender, level: 0 });
+      });
+    } else {
+      // Neu con trang bi khoa (chua mua), quet tiep phan text (khong render anh) de muc luc van day du,
+      // cac chuong sau diem khoa se hien kem bieu tuong khoa, bam vao se dan toi trang mua sach
+      if (!unlocked && totalPages > pagesToRender) {
+        for (let i = pagesToRender + 1; i <= totalPages; i++) {
+          try {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const heading = findHeadingOnPage(textContent.items);
+            if (heading) tocEntries.push({ title: heading, pageIndex: i - 1, locked: true, level: 0 });
+          } catch (e) { /* bo qua */ }
+        }
+      }
+
+      // Neu file PDF co san muc luc/bookmark (outline) thi uu tien dung, chuan xac hon viec do chu.
+      // Chi lay toi da 2 cap (chuong + bai/muc con) va bo qua nhung dong qua dai (thuong la loi giai/
+      // dap an bi nhung nham thanh bookmark rat sau trong file goc) de muc luc gon gang, de dung.
+      const MAX_TOC_LEVEL = 1;
+      const MAX_TITLE_LEN = 70;
+      try {
+        const outline = await pdf.getOutline();
+        if (outline && outline.length) {
+          tocEntries.length = 0;
+          async function flattenOutline(items, level) {
+            for (const item of items) {
+              const title = (item.title || '').trim();
+              let dest = item.dest;
+              if (typeof dest === 'string') dest = await pdf.getDestination(dest);
+              if (dest && dest[0] != null && title && title.length <= MAX_TITLE_LEN) {
+                const pageIndex = await pdf.getPageIndex(dest[0]);
+                tocEntries.push({ title, pageIndex, locked: !unlocked && pageIndex >= pagesToRender, level });
+              }
+              if (item.items && item.items.length && level < MAX_TOC_LEVEL) await flattenOutline(item.items, level + 1);
+            }
+          }
+          await flattenOutline(outline, 0);
+        }
+      } catch (e) { /* khong co outline thi thoi, dung ket qua tu nhan dien van ban o tren */ }
+    }
+
+    if (!unlocked && totalPages > previewLimit) {
+      const lockDiv = document.createElement('div');
+      lockDiv.className = 'storypage';
+      lockDiv.setAttribute('data-density', 'hard');
+      lockDiv.innerHTML = '<div class="storypage-inner text-center py-5">' +
+        '<i class="fa-solid fa-lock fa-2x text-muted mb-3"></i>' +
+        '<p class="text-muted">Bạn đã xem hết ' + previewLimit + ' trang xem thử. Mua sách để đọc toàn bộ ' + totalPages + ' trang.</p>' +
+        '<a href="' + buySlug + '" class="btn btn-primary btn-sm">Xem thông tin mua sách</a></div>';
+      container.appendChild(lockDiv);
+    }
+
+    document.body.appendChild(container);
+    loadingEl.remove();
+
+    const pageFlip = new St.PageFlip(flipbookEl, {
+      width: targetWidth,
+      height: targetHeight,
+      size: 'stretch',
+      minWidth: 280, maxWidth: 1100, minHeight: 380, maxHeight: 1500,
+      showCover: true,
+      maxShadowOpacity: 0.5
+    });
+    pageFlip.loadFromHTML(container.querySelectorAll('.storypage'));
+
+    document.getElementById('prevBtn').addEventListener('click', () => pageFlip.flipPrev());
+    document.getElementById('nextBtn').addEventListener('click', () => pageFlip.flipNext());
+
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => pageFlip.update(), 200);
+    });
+
+    renderTocList(tocEntries, (i) => pageFlip.flip(i), buySlug);
+  } catch (err) {
+    console.error('Loi tai sach PDF:', err);
+    loadingEl.innerHTML = '<div class="text-danger">Không tải được sách. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.</div>';
+  }
+})();
+</script>
+<% } %>
+
+<%- include('partials/footer') %>

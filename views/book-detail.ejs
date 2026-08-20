@@ -1,0 +1,64 @@
+<% var pageTitle = book.title %>
+<%- include('partials/header') %>
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card p-3 mb-3">
+      <h2 class="fw-bold mb-0" style="font-size:1.5rem"><%= book.title %></h2>
+      <% if (book.author) { %><div class="text-muted">Tác giả: <%= book.author %></div><% } %>
+    </div>
+    <div class="card p-3">
+      <img src="<%= book.cover_url || '/img/placeholder.svg' %>" class="w-100 rounded mb-3" style="max-height:400px;object-fit:contain">
+      <% if (book.short_desc) { %><p class="text-muted"><%= book.short_desc %></p><% } %>
+      <% if (book.description) { %><div><%- book.description %></div><% } %>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card p-3" style="position:sticky; top:80px">
+      <div class="d-flex align-items-baseline gap-2 mb-3">
+        <div class="fs-3 fw-bold price-tag"><%= book.price > 0 ? formatVND(book.price) : 'Miễn phí' %></div>
+        <% if (book.compare_at_price && book.compare_at_price > book.price) { %>
+          <div class="text-muted text-decoration-line-through"><%= formatVND(book.compare_at_price) %></div>
+        <% } %>
+      </div>
+      <% if (purchased) { %>
+        <a href="<%= book.file_url %>" target="_blank" class="btn btn-success w-100 mb-2">Tải sách ngay</a>
+      <% } else { %>
+        <form method="POST" action="/gio-hang/them" class="mb-2">
+          <input type="hidden" name="item_type" value="book">
+          <input type="hidden" name="item_id" value="<%= book.id %>">
+          <button class="btn btn-outline-primary w-100">Thêm vào giỏ hàng</button>
+        </form>
+        <a href="/mua-ngay/sach/<%= book.slug %>" class="btn btn-primary w-100 mb-2">Mua ngay</a>
+      <% } %>
+      <% if (book.preview_url) { %>
+        <button class="btn btn-outline-secondary w-100" data-bs-toggle="modal" data-bs-target="#previewModal">
+          <i class="fa-solid fa-book-open"></i> Đọc thử
+        </button>
+      <% } %>
+      <% if (book.category_name || book.book_type_name) { %>
+        <div class="mt-3 small text-muted">
+          <% if (book.category_name) { %><div>Danh mục: <strong><%= book.category_name %></strong></div><% } %>
+          <% if (book.book_type_name) { %><div>Thể loại: <strong><%= book.book_type_name %></strong></div><% } %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<% if (book.preview_url) { %>
+<div class="modal fade" id="previewModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content" style="height:85vh">
+      <div class="modal-header">
+        <h6 class="modal-title">Đọc thử: <%= book.title %></h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <iframe src="<%= embedPdfUrl(book.preview_url) %>" class="w-100 h-100" style="border:none"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+<% } %>
+
+<%- include('partials/footer') %>

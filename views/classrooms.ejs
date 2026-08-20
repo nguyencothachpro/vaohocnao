@@ -1,0 +1,8 @@
+<% var pageTitle='Phòng học cùng thầy cô' %>
+<%- include('partials/header') %>
+<div class="card p-4 mb-4"><div class="d-flex justify-content-between align-items-center"><div><h3 class="fw-bold mb-1">Phòng học đang mở</h3><p class="text-muted mb-0">Vào phòng để xem bảng viết, tài liệu, PDF lật trang và buổi phát trực tiếp.</p></div><% if(currentUser && ['super_admin','admin','teacher'].includes(currentUser.role)){%><a href="/admin/phong-hoc" class="btn btn-primary">Quản lý phòng học</a><%}%></div></div>
+<div class="row g-3">
+<% rooms.forEach(r=>{%><div class="col-md-6 col-xl-4"><div class="card p-3 h-100"><span class="badge bg-success mb-2">Đang mở</span><h5 class="fw-bold"><%=r.title%></h5><div class="small text-muted mb-3">Thầy/cô: <%=r.teacher_name||'—'%><br>Mã phòng: <code><%=r.room_code%></code></div><a class="btn btn-primary w-100" href="/phong-hoc/<%=r.room_code%>">Vào phòng</a></div></div><%})%>
+<% if(!rooms.length){%><div class="col-12"><div class="card p-5 text-center text-muted">Hiện chưa có phòng học trực tuyến nào đang mở.</div></div><%}%>
+</div>
+<%- include('partials/footer') %>

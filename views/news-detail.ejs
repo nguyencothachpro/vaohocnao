@@ -1,0 +1,10 @@
+<% var pageTitle = article.title %>
+<%- include('partials/header') %>
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <h2 class="fw-bold"><%= article.title %></h2>
+    <% if (article.thumbnail_url) { %><img src="<%= article.thumbnail_url %>" class="w-100 rounded mb-3"><% } %>
+    <div><%- article.content %></div>
+  </div>
+</div>
+<%- include('partials/footer') %>

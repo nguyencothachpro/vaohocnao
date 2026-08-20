@@ -1,17 +1,19 @@
 services:
   - type: web
-    name: vaohocnao-clean
+    name: vaohocnao
     env: node
-    plan: starter
+    plan: free
     buildCommand: npm install
     startCommand: npm start
     envVars:
       - key: NODE_VERSION
         value: 20.20.2
-      - key: SESSION_SECRET
-        generateValue: true
+      - key: DB_SCHEMA
+        value: lms_v2
       - key: DATABASE_URL
         sync: false
+      - key: SESSION_SECRET
+        generateValue: true
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD

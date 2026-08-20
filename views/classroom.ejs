@@ -1,1 +1,33 @@
-<!doctype html><html><head><meta charset=utf-8><link rel=stylesheet href=/style.css></head><body><main><h1>Phòng học cùng thầy cô</h1><div class=classroom><aside><button onclick="mode='pen'">✎ Bút</button><button onclick="mode='erase'">Tẩy</button><button onclick="navigator.mediaDevices.getUserMedia({video:true,audio:true}).then(s=>v.srcObject=s)">📷 Camera + Mic</button><button onclick="navigator.mediaDevices.getDisplayMedia({video:true})">🖥 Chia sẻ màn hình</button></aside><section><canvas id=c></canvas><video id=v autoplay muted></video></section></div></main><script>let c=document.getElementById('c'),x=c.getContext('2d'),v=document.getElementById('v'),mode='pen';function z(){c.width=c.clientWidth*devicePixelRatio;c.height=650*devicePixelRatio;x.scale(devicePixelRatio,devicePixelRatio)}z();addEventListener('resize',z);let d=0;c.onpointerdown=e=>{d=1;x.beginPath();x.moveTo(e.offsetX,e.offsetY)};c.onpointerup=()=>d=0;c.onpointermove=e=>{if(!d)return;if(mode==='erase')x.clearRect(e.offsetX-10,e.offsetY-10,20,20);else{x.lineWidth=3;x.lineTo(e.offsetX,e.offsetY);x.stroke()}};</script></body></html>
+<% var pageTitle=room.title %>
+<%- include('partials/header') %>
+<div class="classroom-shell rounded-3 overflow-hidden">
+  <div class="classroom-toolbar">
+    <button class="classroom-btn" id=pen>✎ Bút</button><button class="classroom-btn" id=eraser>⌫ Tẩy</button><button class="classroom-btn" id=textTool>T Chữ</button><button class="classroom-btn" id=clear>🗑 Xóa trang</button>
+    <button class="classroom-btn" id=cam>📷 Camera + Mic</button><button class="classroom-btn" id=green>🟢 Xóa nền xanh</button><button class="classroom-btn" id=screen>🖥 Chia sẻ màn hình</button>
+    <button class="classroom-btn" id=prev>← Trang</button><button class="classroom-btn" id=next>Trang →</button>
+    <span class="ms-auto small align-self-center">Phòng <code><%=room.room_code%></code> · <%=isTeacher?'GIÁO VIÊN':'HỌC VIÊN'%></span>
+  </div>
+  <div class="classroom-workspace">
+    <div class="classroom-stage">
+      <div id=pages style="width:min(900px,100%);"></div>
+      <% if(room.live_url){ %><div id=liveBox style="position:fixed;right:330px;bottom:18px;width:320px;z-index:30"><iframe src="<%=room.live_url%>" style="width:100%;aspect-ratio:16/9;border:0;border-radius:10px;background:#000" allowfullscreen></iframe></div><% } %>
+    </div>
+    <aside class="classroom-side">
+      <h6 class="fw-bold">Phòng học</h6>
+      <div class="small text-secondary mb-2">Tài liệu và sách có thể mở trực tiếp trên bảng. Bạn có thể dán link PDF, ảnh hoặc copy/paste nội dung.</div>
+      <video id=localVideo autoplay muted playsinline></video><canvas id=keyCanvas hidden></canvas>
+      <video id=remoteVideo autoplay playsinline class="mt-2"></video>
+      <hr>
+      <h6>Tài liệu</h6>
+      <%materials.forEach(m=>{%><div class="classroom-material"><div class=small><%=m.title%></div><%if(m.url){%><a href="<%=m.url%>" target=_blank rel=noopener>🔗 Mở tài liệu</a><%}%></div><%})%>
+      <form method=post action="/admin/phong-hoc/tai-lieu" class="mt-2">
+        <input type=hidden name=classroom_id value="<%=room.id%>"><input type=hidden name=room_code value="<%=room.room_code%>">
+        <input name=title class="form-control form-control-sm mb-2" placeholder="Tên tài liệu"><input name=url class="form-control form-control-sm mb-2" placeholder="Link PDF/Drive/ảnh"><button class="classroom-btn w-100">Thêm link</button>
+      </form>
+      <hr><div class="small text-secondary">Phù hợp lớp nhỏ với camera trực tiếp. Với hàng nghìn học sinh, nên dùng YouTube Live/OBS làm luồng video và phòng này làm bảng tương tác + tài liệu.</div>
+    </aside>
+  </div>
+</div>
+<script src="/socket.io/socket.io.js"></script><script src="/js/classroom.js"></script>
+<script>window.CLASSROOM=<%-JSON.stringify({room:room.room_code,isTeacher,initialPdf:room.pdf_url||''})%>;</script>
+<%- include('partials/footer') %>

@@ -1,0 +1,7 @@
+<% var pageTitle=lesson.title %>
+<%- include('partials/header') %>
+<div class="row"><div class="col-lg-8"><div class="card p-4"><h3><%=lesson.title%></h3><%if(lesson.content){%><div class="mb-4"><%-lesson.content%></div><%}%>
+<%lesson.videos.forEach(v=>{%><div class="ratio ratio-16x9 bg-dark rounded mb-3"><%if(v.source_type==='youtube'){%><iframe src="https://www.youtube-nocookie.com/embed/<%=v.source_value%>" allowfullscreen></iframe><%}else if(v.source_type==='vimeo'){%><iframe src="https://player.vimeo.com/video/<%=v.source_value%>" allowfullscreen></iframe><%}else if(v.source_type==='drive'){%><iframe src="<%=v.source_value.replace('/view','/preview')%>" allowfullscreen></iframe><%}else{%><video controls><source src="<%=v.source_value%>"></video><%}%></div><%})%>
+<%if(lesson.files.length){%><h5>Tài liệu</h5><ul><%lesson.files.forEach(f=>{%><li><a href="<%=f.file_url%>" target=_blank><%=f.title%></a></li><%})%></ul><%}%>
+</div></div><div class="col-lg-4"><div class=card p-3><h6 class=fw-bold>Học sách</h6><p class=small text-muted>Sách này có cấu trúc học tập riêng, không phải một video duy nhất.</p></div></div></div>
+<%- include('partials/footer') %>

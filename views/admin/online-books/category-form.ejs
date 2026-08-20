@@ -1,0 +1,38 @@
+<% var pageTitle = category ? 'Sửa danh mục đọc sách online' : 'Thêm danh mục đọc sách online' %>
+<%- include('../../partials/admin-header') %>
+<div class="card p-4" style="max-width:520px">
+  <form method="POST" action="<%= category ? '/admin/doc-sach-online/danh-muc/' + category.id : '/admin/doc-sach-online/danh-muc' %>">
+    <div class="mb-3">
+      <label class="form-label">Tên danh mục</label>
+      <input name="name" class="form-control" value="<%= category ? category.name : '' %>" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Danh mục cha (để trống nếu là danh mục gốc)</label>
+      <select name="parent_id" class="form-select">
+        <option value="">-- Không có (danh mục gốc, cấp 1) --</option>
+        <%
+          var _catMap = {};
+          categories.forEach(function (c) { _catMap[c.id] = Object.assign({}, c, { children: [] }); });
+          var _catRoots = [];
+          categories.forEach(function (c) {
+            if (c.parent_id && _catMap[c.parent_id]) _catMap[c.parent_id].children.push(_catMap[c.id]);
+            else _catRoots.push(_catMap[c.id]);
+          });
+          function renderParentOptions(nodes, depth) {
+            nodes.forEach(function (c) {
+        %>
+              <option value="<%= c.id %>" <%= category && category.parent_id === c.id ? 'selected' : '' %>><%= '\u00A0\u00A0\u00A0\u00A0'.repeat(depth) %><%= depth > 0 ? '↳ ' : '' %><%= c.name %> <%= '(cấp ' + (depth+1) + ')' %></option>
+        <%
+              if (c.children.length) renderParentOptions(c.children, depth + 1);
+            });
+          }
+          renderParentOptions(_catRoots, 0);
+        %>
+      </select>
+      <div class="form-text">Có thể chọn danh mục cha ở bất kỳ cấp nào để tạo thêm cấp con bên dưới nó (không giới hạn số cấp).</div>
+    </div>
+    <button class="btn btn-primary">Lưu</button>
+    <a href="/admin/doc-sach-online/danh-muc" class="btn btn-outline-secondary">Hủy</a>
+  </form>
+</div>
+<%- include('../../partials/admin-footer') %>

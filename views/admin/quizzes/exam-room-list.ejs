@@ -1,0 +1,29 @@
+<% var pageTitle = 'Thực chiến phòng thi' %>
+<%- include('../../partials/admin-header') %>
+<div class="alert alert-secondary small">Thư viện đề thi độc lập, không gắn với khóa học/bài học nào — học viên vào thi thử trực tiếp từ trang "Thực chiến phòng thi" trên web.</div>
+<div class="d-flex justify-content-end mb-3"><a href="/admin/phong-thi/them-moi" class="btn btn-primary btn-sm">+ Tạo đề thi mới</a></div>
+<div class="card p-3">
+  <table class="table">
+    <thead><tr><th>Tên đề thi</th><th>Danh mục</th><th>Số câu</th><th></th></tr></thead>
+    <tbody>
+      <% exams.forEach(e => { %>
+        <tr>
+          <td><%= e.title %></td>
+          <td><%= e.category_name || '—' %></td>
+          <td><%= e.question_count %></td>
+          <td class="text-nowrap">
+            <a href="/admin/bai-kiem-tra/<%= e.id %>/cau-hoi" class="btn btn-sm btn-outline-primary">Câu hỏi</a>
+            <a href="/admin/bai-kiem-tra/<%= e.id %>/giao-de" class="btn btn-sm btn-outline-info">Giao đề</a>
+            <a href="/admin/bai-kiem-tra/<%= e.id %>/ket-qua" class="btn btn-sm btn-outline-secondary">Bảng điểm</a>
+            <a href="/thi/<%= e.id %>/xep-hang" target="_blank" class="btn btn-sm btn-outline-warning">Xếp hạng</a>
+            <form method="POST" action="/admin/bai-kiem-tra/<%= e.id %>/xoa" class="d-inline" onsubmit="return confirm('Xóa đề thi này?')">
+              <button class="btn btn-sm btn-outline-danger">Xóa</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (exams.length === 0) { %><tr><td colspan="4" class="text-center text-muted">Chưa có đề thi nào.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/admin-footer') %>

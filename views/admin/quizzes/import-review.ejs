@@ -1,0 +1,163 @@
+<% var pageTitle = 'Xem trước & sửa đề đã tải lên' %>
+<%- include('../../partials/admin-header') %>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h6 class="fw-bold mb-0">Xem trước & sửa trước khi lưu</h6>
+    <div class="small text-muted">
+      Nhận diện được <strong><%= questions.length %></strong> câu hỏi
+      <%= usedAI ? '(dùng AI)' : '(dò theo mẫu thông thường)' %>.
+      Bên trái là <strong>hình ảnh thật sự học viên sẽ thấy</strong>, bên phải để bạn sửa — sửa xong preview bên trái tự cập nhật ngay.
+    </div>
+  </div>
+  <a href="<%= quiz.lesson_id ? '/admin/bai-hoc/'+quiz.lesson_id+'/bai-kiem-tra' : '/admin/bai-kiem-tra/'+quiz.id+'/cau-hoi' %>" class="btn btn-outline-secondary btn-sm">Hủy, quay lại</a>
+</div>
+
+<% if (aiError) { %>
+  <div class="alert alert-warning small">AI gặp lỗi (<%= aiError %>) nên hệ thống đã tự chuyển sang dò theo mẫu thông thường.</div>
+<% } %>
+<% if (questions.length === 0) { %>
+  <div class="alert alert-danger">Không nhận diện được câu hỏi nào trong file này. Vui lòng kiểm tra lại file hoặc nhập câu hỏi thủ công.</div>
+<% } %>
+
+<form method="POST" action="/admin/bai-kiem-tra/luu-de-import">
+  <input type="hidden" name="redirect_to" value="<%= quiz.lesson_id ? '/admin/bai-hoc/'+quiz.lesson_id+'/bai-kiem-tra' : '/admin/bai-kiem-tra/'+quiz.id+'/cau-hoi' %>">
+  <input type="hidden" name="quiz_id" value="<%= quiz.id %>">
+
+  <% questions.forEach((q, i) => { %>
+    <div class="card p-0 mb-3 question-row overflow-hidden" data-index="<%= i %>">
+      <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom bg-white">
+        <span class="fw-bold">Câu <%= i+1 %> <%= q.needsReview ? '<span class="badge bg-warning text-dark ms-1">Cần kiểm tra lại</span>' : '' %></span>
+        <label class="small d-flex align-items-center gap-1 mb-0">
+          <input type="checkbox" name="questions[<%= i %>][include]" checked> Giữ câu này
+        </label>
+      </div>
+
+      <div class="row g-0">
+        <!-- Cot trai: xem truoc that su (tu cap nhat khi sua ben phai) -->
+        <div class="col-md-6 border-end bg-light p-3 preview-pane">
+          <div class="small text-muted mb-2"><i class="fa-solid fa-eye"></i> Xem trước</div>
+          <div class="preview-content bg-white rounded p-3 border" style="min-height:120px"></div>
+        </div>
+
+        <!-- Cot phai: cac o de sua -->
+        <div class="col-md-6 p-3">
+          <div class="row g-2 mb-2">
+            <div class="col-md-8">
+              <label class="form-label small">Dạng câu hỏi</label>
+              <select name="questions[<%= i %>][type]" class="form-select form-select-sm q-type">
+                <option value="single_choice" <%= q.type==='single_choice'?'selected':'' %>>Phần I — Trắc nghiệm nhiều lựa chọn</option>
+                <option value="true_false" <%= q.type==='true_false'?'selected':'' %>>Phần II — Đúng/Sai (4 ý)</option>
+                <option value="short_answer" <%= q.type==='short_answer'?'selected':'' %>>Phần III — Trả lời ngắn</option>
+                <option value="essay" <%= q.type==='essay'?'selected':'' %>>Tự luận (chấm tay)</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">Điểm</label>
+              <input type="number" step="0.05" name="questions[<%= i %>][points]" class="form-control form-control-sm q-points" value="<%= q.points %>">
+            </div>
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label small">Nội dung câu hỏi <span class="text-muted">(có thể chứa thẻ &lt;img&gt;/&lt;math&gt; — cứ để nguyên, đừng xóa)</span></label>
+            <textarea name="questions[<%= i %>][question]" class="form-control form-control-sm q-question" rows="3"><%= q.question %></textarea>
+          </div>
+
+          <!-- Trac nghiem 1 dap an -->
+          <div class="q-fields" data-type="single_choice" style="<%= q.type!=='single_choice'?'display:none':'' %>">
+            <% for (let k = 0; k < 4; k++) { %>
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <input type="radio" name="questions[<%= i %>][correct_index]" value="<%= k %>" class="q-correct-index" <%= (q.correctIndex===k)?'checked':(k===0 && q.correctIndex===undefined?'checked':'') %>>
+                <input name="questions[<%= i %>][options][]" class="form-control form-control-sm q-option" value="<%= (q.options && q.options[k]) ? q.options[k] : '' %>" placeholder="Phương án <%= String.fromCharCode(65+k) %>">
+              </div>
+            <% } %>
+          </div>
+
+          <!-- Dung/Sai -->
+          <div class="q-fields" data-type="true_false" style="<%= q.type!=='true_false'?'display:none':'' %>">
+            <% for (let k = 0; k < 4; k++) { %>
+              <% var item = (q.items && q.items[k]) ? q.items[k] : { content: '', is_correct: false }; %>
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="text-muted" style="width:16px"><%= String.fromCharCode(97+k) %>)</span>
+                <input name="questions[<%= i %>][tf_content][]" class="form-control form-control-sm q-tf-content" value="<%= item.content %>">
+                <label class="d-flex align-items-center gap-1 small mb-0">
+                  <input type="checkbox" name="questions[<%= i %>][tf_correct][]" value="<%= k %>" class="q-tf-correct" <%= item.is_correct ? 'checked' : '' %>> Đúng
+                </label>
+              </div>
+            <% } %>
+          </div>
+
+          <!-- Tra loi ngan -->
+          <div class="q-fields" data-type="short_answer" style="<%= q.type!=='short_answer'?'display:none':'' %>">
+            <input name="questions[<%= i %>][correct_answer]" class="form-control form-control-sm q-correct-answer" value="<%= q.correct_answer || '' %>" placeholder="Đáp án đúng">
+          </div>
+
+          <!-- Tu luan: khong can them field -->
+        </div>
+      </div>
+    </div>
+  <% }) %>
+
+  <% if (questions.length > 0) { %>
+    <button class="btn btn-primary">Lưu tất cả câu hỏi đã chọn vào bài kiểm tra</button>
+  <% } %>
+</form>
+
+<script>window.MathJax = { tex: { inlineMath: [['$','$']] }, startup: { typeset: false } };</script>
+<script id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/mml-chtml.js"></script>
+<script>
+  const letters = ['A', 'B', 'C', 'D'];
+
+  function renderPreview(row) {
+    const type = row.querySelector('.q-type').value;
+    const questionHtml = row.querySelector('.q-question').value;
+    const previewEl = row.querySelector('.preview-content');
+    let html = `<div class="mb-2">${questionHtml}</div>`;
+
+    if (type === 'single_choice') {
+      const correctIdx = row.querySelector('.q-correct-index:checked') ? parseInt(row.querySelector('.q-correct-index:checked').value) : -1;
+      const opts = [...row.querySelectorAll('.q-option')].map(el => el.value);
+      html += '<div class="d-flex flex-column gap-1">';
+      opts.forEach((opt, k) => {
+        const isCorrect = k === correctIdx;
+        html += `<div class="${isCorrect ? 'text-success fw-bold' : ''}">${isCorrect ? '✓' : letters[k] + '.'} ${opt}</div>`;
+      });
+      html += '</div>';
+    } else if (type === 'true_false') {
+      const contents = [...row.querySelectorAll('.q-tf-content')].map(el => el.value);
+      const corrects = [...row.querySelectorAll('.q-tf-correct')].map(el => el.checked);
+      html += '<div class="d-flex flex-column gap-1">';
+      contents.forEach((c, k) => {
+        html += `<div>${String.fromCharCode(97+k)}) ${c} — <span class="${corrects[k] ? 'text-success fw-bold' : 'text-danger'}">${corrects[k] ? 'Đúng' : 'Sai'}</span></div>`;
+      });
+      html += '</div>';
+    } else if (type === 'short_answer') {
+      const ans = row.querySelector('.q-correct-answer').value;
+      html += `<div class="small">Đáp án đúng: <strong class="text-success">${ans}</strong></div>`;
+    } else {
+      html += '<div class="small text-muted">Câu tự luận — học viên nhập bài làm dài, giáo viên chấm tay sau.</div>';
+    }
+
+    previewEl.innerHTML = html;
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      window.MathJax.typesetPromise([previewEl]).catch(() => {});
+    }
+  }
+
+  document.querySelectorAll('.question-row').forEach(row => {
+    const select = row.querySelector('.q-type');
+    select.addEventListener('change', () => {
+      row.querySelectorAll('.q-fields').forEach(el => {
+        el.style.display = el.dataset.type === select.value ? '' : 'none';
+      });
+      renderPreview(row);
+    });
+    row.querySelectorAll('input, textarea').forEach(el => {
+      el.addEventListener('input', () => renderPreview(row));
+      el.addEventListener('change', () => renderPreview(row));
+    });
+    renderPreview(row);
+  });
+</script>
+
+<%- include('../../partials/admin-footer') %>

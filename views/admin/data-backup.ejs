@@ -1,0 +1,12 @@
+<% var pageTitle='Xuất / nhập dữ liệu' %>
+<%- include('../partials/admin-header') %>
+<div class="alert alert-warning">
+  <b>Đây là bản sao lưu dữ liệu nghiệp vụ.</b> Hãy tải file JSON về máy sau mỗi đợt nhập học. Khi khôi phục, dữ liệu trong schema hiện tại sẽ được thay bằng dữ liệu trong file.
+</div>
+<% if (typeof query!=='undefined' && query.restored) { %><div class="alert alert-success">Khôi phục dữ liệu thành công.</div><% } %>
+<div class="row g-3">
+<div class="col-md-6"><div class="card p-4 h-100"><h5 class="fw-bold">⬇️ Xuất dữ liệu</h5><p class="text-muted">Học viên, khóa học, chương, bài, video, sách, mã kích hoạt, tiến độ, đơn hàng, phòng học... được đóng gói thành một file JSON.</p><a class="btn btn-primary" href="/admin/du-lieu/xuat">Tải bản sao lưu</a></div></div>
+<div class="col-md-6"><div class="card p-4 h-100"><h5 class="fw-bold">⬆️ Khôi phục dữ liệu</h5><p class="text-danger small">Chỉ dùng file backup của hệ thống này. Khôi phục sẽ thay thế dữ liệu nghiệp vụ hiện tại.</p><form method="POST" action="/admin/du-lieu/nhap" enctype="multipart/form-data"><input class="form-control mb-3" type=file name=backup accept=".json" required><button class="btn btn-danger" onclick="return confirm('Khôi phục sẽ thay thế dữ liệu hiện tại. Bạn chắc chắn?')">Khôi phục</button></form></div></div>
+</div>
+<div class="card p-4 mt-3"><h6 class="fw-bold">Khuyến nghị</h6><ul class="small text-muted mb-0"><li>Video/PDF nên lưu bằng YouTube/Google Drive/CDN; backup này lưu URL và quyền truy cập, không đóng gói video/PDF.</li><li>File backup không chứa mật khẩu dạng chữ; mật khẩu được lưu dưới dạng hash.</li><li>Nên tải backup về máy/Google Drive riêng theo tuần hoặc theo đợt cấp mã.</li></ul></div>
+<%- include('../partials/admin-footer') %>

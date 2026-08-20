@@ -1,0 +1,12 @@
+<% var pageTitle='Phòng học trực tuyến' %>
+<%- include('../partials/admin-header') %>
+<div class="card p-4 mb-3">
+<h5 class="fw-bold">Tạo phòng học mới</h5>
+<form method=post action="/admin/phong-hoc" class="row g-2">
+<div class="col-md-4"><input name=title class=form-control placeholder="Tên buổi học" required></div>
+<div class="col-md-4"><input name=live_url class=form-control placeholder="Link YouTube Live/OBS (tùy chọn)"></div>
+<div class="col-md-4"><input name=pdf_url class=form-control placeholder="Link PDF/Drive tài liệu (tùy chọn)"></div>
+<div class="col-12"><button class="btn btn-primary">Mở phòng</button></div>
+</form></div>
+<div class="row g-3"><%rooms.forEach(r=>{%><div class="col-md-6"><div class="card p-3"><div class="d-flex justify-content-between"><h5><%=r.title%></h5><span class="badge <%=r.status==='live'?'bg-success':'bg-secondary'%>"><%=r.status==='live'?'Đang mở':'Đã đóng'%></span></div><p class="small text-muted">Mã: <code><%=r.room_code%></code> · Giáo viên: <%=r.teacher_name||'—'%></p><a class="btn btn-outline-primary btn-sm" href="/phong-hoc/<%=r.room_code%>">Mở phòng</a> <%if(r.status==='live'){%><form class="d-inline" method=post action="/admin/phong-hoc/<%=r.id%>/dong"><button class="btn btn-outline-danger btn-sm">Đóng phòng</button></form><%}%></div></div><%})%></div>
+<%- include('../partials/admin-footer') %>

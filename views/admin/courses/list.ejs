@@ -1,0 +1,29 @@
+<% var pageTitle = 'Khóa học' %>
+<%- include('../../partials/admin-header') %>
+<div class="d-flex justify-content-end mb-3"><a href="/admin/khoa-hoc/them-moi" class="btn btn-primary btn-sm">+ Thêm khóa học</a></div>
+<div class="card p-3">
+  <table class="table">
+    <thead><tr><th>Ảnh</th><th>Tên khóa học</th><th>Danh mục</th><th>Giá</th><th>Trạng thái</th><th>Lượt xem</th><th></th></tr></thead>
+    <tbody>
+      <% courses.forEach(c => { %>
+        <tr>
+          <td><img src="<%= c.thumbnail_url || '/img/placeholder.svg' %>" width="60" height="40" style="object-fit:cover;border-radius:6px"></td>
+          <td><%= c.title %></td>
+          <td><%= c.category_name || '-' %></td>
+          <td><%= formatVND(c.price) %></td>
+          <td><span class="badge bg-<%= c.is_published ? 'success' : 'secondary' %>"><%= c.is_published ? 'Hiển thị' : 'Ẩn' %></span></td>
+          <td><%= c.view_count %></td>
+          <td class="text-nowrap">
+            <a href="/admin/khoa-hoc/<%= c.id %>/noi-dung" class="btn btn-sm btn-outline-primary">Nội dung</a>
+            <a href="/admin/khoa-hoc/<%= c.id %>/sua" class="btn btn-sm btn-outline-secondary">Sửa</a>
+            <form method="POST" action="/admin/khoa-hoc/<%= c.id %>/xoa" class="d-inline" onsubmit="return confirm('Xóa khóa học này?')">
+              <button class="btn btn-sm btn-outline-danger">Xóa</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (courses.length === 0) { %><tr><td colspan="7" class="text-center text-muted">Chưa có khóa học nào.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/admin-footer') %>
