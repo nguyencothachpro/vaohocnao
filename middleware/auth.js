@@ -11,12 +11,19 @@ function requireLogin(req, res, next) {
   next();
 }
 
+function requireAnyLogin(req, res, next) {
+  const user = req.session.user || req.session.adminUser;
+  if (!user) return res.redirect(req.session.adminUser ? '/admin/dang-nhap' : '/dang-nhap');
+  res.locals.currentUser = req.session.user || null;
+  if (req.session.adminUser) res.locals.adminUser = req.session.adminUser;
+  next();
+}
+
 function requireGuest(req, res, next) {
   if (req.session.user) return res.redirect('/');
   next();
 }
 
-// Cho phep tu 1 role toi thieu tro len (theo cap bac ROLE_LEVEL)
 function requireRole(minRole) {
   return (req, res, next) => {
     const user = req.session.adminUser || req.session.user;
@@ -25,6 +32,9 @@ function requireRole(minRole) {
     if (level < ROLE_LEVEL[minRole]) {
       return res.status(403).render('403', { user });
     }
+    // Some admin routes are mounted outside /admin (for example /admin/phong-hoc).
+    // Keep the same locals contract as the main admin router so admin partials can render safely.
+    if (req.session.adminUser) res.locals.adminUser = req.session.adminUser;
     next();
   };
 }
@@ -35,4 +45,4 @@ function requireAdminLogin(req, res, next) {
   next();
 }
 
-module.exports = { attachUser, requireLogin, requireGuest, requireRole, requireAdminLogin, ROLE_LEVEL };
+module.exports = { attachUser, requireLogin, requireAnyLogin, requireGuest, requireRole, requireAdminLogin, ROLE_LEVEL };
