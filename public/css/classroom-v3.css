@@ -12,3 +12,6 @@
 #c3NotePublishToggle.active{background:#16a34a;border-color:#16a34a;color:#fff}
 .c3-tab-flash{animation:c3TabFlash 1s ease-in-out 4}
 @keyframes c3TabFlash{0%,100%{background:transparent}50%{background:#fef08a}}
+.c3-laser-dot{position:absolute;width:22px;height:22px;margin-left:-11px;margin-top:-11px;border-radius:50%;background:radial-gradient(circle,rgba(239,68,68,.95) 0%,rgba(239,68,68,.55) 55%,rgba(239,68,68,0) 75%);pointer-events:none;opacity:0;z-index:50}
+.c3-laser-dot.ping{animation:c3LaserPing 1.8s ease-out forwards}
+@keyframes c3LaserPing{0%{opacity:1;transform:scale(.6)}15%{opacity:1;transform:scale(1.15)}30%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:scale(1)}}
