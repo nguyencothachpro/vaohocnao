@@ -9,6 +9,7 @@
     const setWritable=ok=>{
       canWrite=!!ok;
       document.body.classList.toggle('classroom-readonly',!canWrite);
+      document.body.classList.toggle('classroom-can-write',canWrite);
       document.querySelectorAll('#pen,#highlighter,#eraser,#textTool,#clear').forEach(b=>{if(!C.isTeacher)b.disabled=!canWrite});
       if(!C.isTeacher){
         let bar=document.getElementById('writePermissionBar');
