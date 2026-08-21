@@ -16,8 +16,40 @@
   socket.on('classroom:board',applyRemote);socket.on('classroom:clear',()=>pages.forEach(p=>p.querySelector('.draw-layer')?.getContext('2d').clearRect(0,0,p.querySelector('.draw-layer').width,p.querySelector('.draw-layer').height));
   function goToPage(n,broadcast=true){n=Math.max(0,Math.min((pages.length||1)-1,Number(n)||0));currentPage=n;if(pageFlip)try{pageFlip.flip(n)}catch(e){}if(pageNumber)pageNumber.value=n+1;if(broadcast&&C.isTeacher)socket.emit('classroom:page',{page:n})}
   document.getElementById('prev')?.addEventListener('click',()=>goToPage(currentPage-1));document.getElementById('next')?.addEventListener('click',()=>goToPage(currentPage+1));pageNumber?.addEventListener('change',()=>goToPage(Number(pageNumber.value)-1));socket.on('classroom:page',({page})=>{if(!C.isTeacher)goToPage(page,false)});
-  async function loadPdf(url){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';pdf=await pdfjsLib.getDocument(url).promise;pagesEl.innerHTML='';pages=[];for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i),vp=p.getViewport({scale:1.45}),c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;await p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;pagesEl.appendChild(makePage(i-1,c))}pages=[...pagesEl.children];pageTotal.textContent=pages.length;emptyBoard?.classList.add('d-none');if(window.St?.PageFlip){pageFlip=new St.PageFlip(pagesEl,{width:720,height:1018,size:'stretch',minWidth:300,maxWidth:1100,minHeight:430,maxHeight:1500,showCover:true,maxShadowOpacity:.35,useMouseEvents:true});pageFlip.loadFromHTML(pages);pageFlip.on('flip',e=>{currentPage=e.data;pageNumber.value=currentPage+1;if(C.isTeacher)socket.emit('classroom:page',{page:currentPage})})}goToPage(0,false);updateZoom()}
-  async function openMaterial(url,kind,broadcast=true){if(!url)return;if(kind==='pdf'||/\.pdf(?:\?|$)/i.test(url)){try{await loadPdf(url);if(broadcast&&C.isTeacher)socket.emit('classroom:material-open',{url,kind});return}catch(e){alert('Không mở được PDF. Kiểm tra link chia sẻ.');return}}if(kind==='image'||/\.(png|jpe?g|webp|gif)(?:\?|$)/i.test(url)){const img=new Image();img.crossOrigin='anonymous';img.onload=()=>{const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext('2d').drawImage(img,0,0);pagesEl.innerHTML='';pages=[makePage(0,c)];pagesEl.appendChild(pages[0]);pageTotal.textContent='1';emptyBoard?.classList.add('d-none');if(C.isTeacher&&broadcast)socket.emit('classroom:material-open',{url,kind})};img.onerror=()=>alert('Không mở được ảnh.');img.src=url;return}window.open(url,'_blank','noopener')}
+  function showPdfError(message){
+    pagesEl.innerHTML=`<div class="pdf-error"><div class="pdf-error-icon">⚠️</div><h5>Không mở được tài liệu</h5><p>${message}</p><button type="button" id="retryPdf" class="btn btn-primary btn-sm">Thử mở lại</button></div>`;
+    pageTotal.textContent='0';emptyBoard?.classList.add('d-none');
+    document.getElementById('retryPdf')?.addEventListener('click',()=>loadPdf('/phong-hoc/'+C.room+'/pdf'));
+  }
+  async function loadPdf(url){
+    if(!url) return;
+    try{
+      if(!window.pdfjsLib)throw new Error('PDF viewer chưa tải xong.');
+      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const response=await fetch(url,{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)throw new Error(`Máy chủ PDF trả về HTTP ${response.status}.`);
+      const buffer=await response.arrayBuffer();
+      if(buffer.byteLength<5)throw new Error('Máy chủ trả về tệp rỗng.');
+      const signature=new TextDecoder().decode(new Uint8Array(buffer.slice(0,5)));
+      if(!signature.startsWith('%PDF'))throw new Error('Nguồn tài liệu không trả về PDF hợp lệ. Hãy kiểm tra link PDF trong quản trị.');
+      pdf=await pdfjsLib.getDocument({data:buffer}).promise;
+      pagesEl.innerHTML='';pages=[];
+      for(let i=1;i<=pdf.numPages;i++){
+        const p=await pdf.getPage(i),vp=p.getViewport({scale:1.65}),c=document.createElement('canvas');
+        c.width=vp.width;c.height=vp.height;
+        await p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+        pagesEl.appendChild(makePage(i-1,c));
+      }
+      pages=[...pagesEl.children];pageTotal.textContent=pages.length;emptyBoard?.classList.add('d-none');
+      if(window.St?.PageFlip){
+        pageFlip=new St.PageFlip(pagesEl,{width:760,height:1074,size:'stretch',minWidth:280,maxWidth:1200,minHeight:400,maxHeight:1700,showCover:true,maxShadowOpacity:.35,useMouseEvents:true,mobileScrollSupport:true});
+        pageFlip.loadFromHTML(pages);
+        pageFlip.on('flip',e=>{currentPage=e.data;pageNumber.value=currentPage+1;if(C.isTeacher)socket.emit('classroom:page',{page:currentPage})});
+      }
+      goToPage(0,false);updateZoom();
+    }catch(e){console.error('Classroom PDF error:',e);showPdfError(e?.message||'Không xác định được lỗi khi mở PDF.');}
+  }
+  async function openMaterial(url,kind,broadcast=true){if(!url)return;if(kind==='pdf'||/\.pdf(?:\?|$)/i.test(url)){await loadPdf(url);if(broadcast&&C.isTeacher&&pages.length)socket.emit('classroom:material-open',{url,kind});return}if(kind==='image'||/\.(png|jpe?g|webp|gif)(?:\?|$)/i.test(url)){const img=new Image();img.crossOrigin='anonymous';img.onload=()=>{const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext('2d').drawImage(img,0,0);pagesEl.innerHTML='';pages=[makePage(0,c)];pagesEl.appendChild(pages[0]);pageTotal.textContent='1';emptyBoard?.classList.add('d-none');if(C.isTeacher&&broadcast)socket.emit('classroom:material-open',{url,kind})};img.onerror=()=>alert('Không mở được ảnh.');img.src=url;return}window.open(url,'_blank','noopener')}
   document.querySelectorAll('[data-open-pdf]').forEach(b=>b.addEventListener('click',()=>openMaterial(b.dataset.openPdf,'pdf')));document.querySelectorAll('[data-material-url]').forEach(b=>b.addEventListener('click',()=>openMaterial(b.dataset.materialUrl,b.dataset.materialKind)));document.getElementById('openPdf')?.addEventListener('click',()=>C.initialPdf&&openMaterial('/phong-hoc/'+C.room+'/pdf','pdf'));socket.on('classroom:material-open',({url,kind})=>{if(!C.isTeacher)openMaterial(url,kind,false)});
   async function camera(){try{localStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});document.getElementById('localVideo').srcObject=localStream;document.getElementById('videoPip')?.classList.remove('d-none');if(C.isTeacher)socket.emit('classroom:teacher-stream')}catch(e){alert('Không mở được camera/micro. Hãy cấp quyền trình duyệt rồi thử lại.')}}document.getElementById('cam')?.addEventListener('click',camera);
   document.getElementById('screen')?.addEventListener('click',async()=>{if(!C.isTeacher){alert('Chỉ giáo viên mới chia sẻ màn hình cho cả phòng.');return}try{localStream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});document.getElementById('localVideo').srcObject=localStream;document.getElementById('videoPip')?.classList.remove('d-none');socket.emit('classroom:teacher-stream')}catch(e){}});
@@ -27,5 +59,5 @@
   document.getElementById('clear')?.addEventListener('click',()=>{const d=pages[currentPage]?.querySelector('.draw-layer');if(d)d.getContext('2d').clearRect(0,0,d.width,d.height);if(C.isTeacher)socket.emit('classroom:clear')});
   const notes=document.getElementById('notesArea');if(notes){notes.value=localStorage.getItem('vaohocnao_notes_'+C.room)||'';let tm;notes.addEventListener('input',()=>{clearTimeout(tm);tm=setTimeout(()=>{localStorage.setItem('vaohocnao_notes_'+C.room,notes.value);document.getElementById('notesSaved').textContent='Đã tự lưu';},250)})}
   const chatMessages=document.getElementById('chatMessages');function addChat(m){if(!chatMessages)return;const d=document.createElement('div');d.className='chat-msg';d.innerHTML='<b></b><span></span>';d.querySelector('b').textContent=m.user||'Thành viên';d.querySelector('span').textContent=m.text||'';chatMessages.appendChild(d);chatMessages.scrollTop=chatMessages.scrollHeight}socket.on('classroom:chat',addChat);document.getElementById('chatForm')?.addEventListener('submit',e=>{e.preventDefault();const i=document.getElementById('chatInput');if(!i.value.trim())return;socket.emit('classroom:chat',{text:i.value.trim(),user:C.currentUser||'Thành viên'});i.value=''});socket.on('classroom:presence',({count})=>{const el=document.getElementById('presenceText');if(el)el.textContent=`${count} người trong phòng`});
-  socket.emit('classroom:join',{room:C.room,role:C.isTeacher?'teacher':'student',user:C.currentUser});if(!C.isTeacher)socket.emit('classroom:request-stream',{id:socket.id});if(C.initialPdf)loadPdf('/phong-hoc/'+C.room+'/pdf').catch(()=>{});else{const p=makePage(0);pages=[p];pagesEl.appendChild(p);pageTotal.textContent='1'}
+  socket.emit('classroom:join',{room:C.room,role:C.isTeacher?'teacher':'student',user:C.currentUser});if(!C.isTeacher)socket.emit('classroom:request-stream',{id:socket.id});if(C.initialPdf)loadPdf('/phong-hoc/'+C.room+'/pdf');else{const p=makePage(0);pages=[p];pagesEl.appendChild(p);pageTotal.textContent='1'}
 })();
