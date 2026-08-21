@@ -2,6 +2,7 @@ const express=require('express');
 const router=express.Router();
 const c=require('../controllers/classroomController');
 const {requireAnyLogin,requireRole}=require('../middleware/auth');
+const db=require('../config/db');
 
 // Danh sach phong van yeu cau dang nhap. Trang phong co the vao bang ma hoc vien rieng.
 router.get('/phong-hoc',requireAnyLogin,c.list);
@@ -19,4 +20,22 @@ router.post('/admin/phong-hoc/:id/hoc-vien/:studentId/xoa',requireRole('teacher'
 router.post('/admin/phong-hoc/:id/cau-hinh',requireRole('teacher'),c.settings);
 router.post('/admin/phong-hoc/:id/dong',requireRole('teacher'),c.close);
 router.post('/admin/phong-hoc/tai-lieu',requireRole('teacher'),c.addMaterial);
+
+// Xóa vĩnh viễn một phòng học và toàn bộ dữ liệu con của phòng.
+router.post('/admin/phong-hoc/:id/xoa',requireRole('teacher'),async(req,res,next)=>{
+  const client=await db.getClient();
+  try{
+    await client.query('BEGIN');
+    const roomId=Number(req.params.id);
+    if(!Number.isInteger(roomId)||roomId<=0)throw new Error('ID phòng học không hợp lệ');
+    await client.query('DELETE FROM classroom_materials WHERE classroom_id=$1',[roomId]);
+    await client.query('DELETE FROM classroom_students WHERE classroom_id=$1',[roomId]);
+    await client.query('DELETE FROM classroom_settings WHERE classroom_id=$1',[roomId]);
+    const deleted=await client.query('DELETE FROM classrooms WHERE id=$1 RETURNING id',[roomId]);
+    if(!deleted.rows.length){await client.query('ROLLBACK');return res.status(404).send('Phòng học không tồn tại.');}
+    await client.query('COMMIT');
+    if(req.session.classroomMembers)delete req.session.classroomMembers[roomId];
+    res.redirect('/admin/phong-hoc');
+  }catch(e){await client.query('ROLLBACK');next(e)}finally{client.release()}
+});
 module.exports=router;
