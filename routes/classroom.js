@@ -11,7 +11,6 @@ router.post('/phong-hoc/:code/vao',c.joinByCode);
 router.get('/phong-hoc/:code/pdf',c.pdf);
 router.get('/phong-hoc/:code/material-pdf',requireAnyLogin,materialProxy.pdf);
 
-// Quyen rieng cho tung hoc vien: Viet / Mo trang.
 router.get('/phong-hoc/:code/permissions',requireAnyLogin,async(req,res,next)=>{
   try{
     const code=String(req.params.code||'').trim();
@@ -23,9 +22,12 @@ router.get('/phong-hoc/:code/permissions',requireAnyLogin,async(req,res,next)=>{
       const students=(await db.query('SELECT id,student_code,display_name,status,can_write,can_navigate,last_seen FROM classroom_students WHERE classroom_id=$1 ORDER BY id',[room.id])).rows;
       return res.json({roomStatus:room.status,students});
     }
-    const memberId=req.session.classroomMembers?.[room.id];
-    const member=(await db.query("SELECT id,display_name,status,can_write,can_navigate FROM classroom_students WHERE classroom_id=$1 AND id=$2 AND status='active'",[room.id,memberId||0])).rows[0];
+    let memberId=req.session.classroomMembers?.[room.id]||null;
+    let member=null;
+    if(memberId)member=(await db.query("SELECT id,display_name,status,can_write,can_navigate FROM classroom_students WHERE classroom_id=$1 AND id=$2 AND status='active'",[room.id,memberId])).rows[0]||null;
+    if(!member&&user?.id)member=(await db.query("SELECT id,display_name,status,can_write,can_navigate FROM classroom_students WHERE classroom_id=$1 AND user_id=$2 AND status='active' LIMIT 1",[room.id,user.id])).rows[0]||null;
     if(!member)return res.status(403).json({error:'Bạn chưa được cấp quyền vào phòng'});
+    req.session.classroomMembers=req.session.classroomMembers||{};req.session.classroomMembers[room.id]=member.id;
     return res.json({roomStatus:room.status,memberId:member.id,canWrite:Boolean(member.can_write),canNavigate:room.status!=='live'||Boolean(member.can_navigate)});
   }catch(e){next(e)}
 });
