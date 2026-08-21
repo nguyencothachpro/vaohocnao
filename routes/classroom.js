@@ -1,16 +1,16 @@
 const express=require('express');
 const router=express.Router();
 const c=require('../controllers/classroomController');
+const materialProxy=require('../controllers/classroomMaterialProxyController');
 const {requireAnyLogin,requireRole}=require('../middleware/auth');
 const db=require('../config/db');
 
-// Danh sach phong van yeu cau dang nhap. Trang phong co the vao bang ma hoc vien rieng.
 router.get('/phong-hoc',requireAnyLogin,c.list);
 router.get('/phong-hoc/:code',c.room);
 router.post('/phong-hoc/:code/vao',c.joinByCode);
 router.get('/phong-hoc/:code/pdf',c.pdf);
+router.get('/phong-hoc/:code/material-pdf',requireAnyLogin,materialProxy.pdf);
 
-// Quan ly lop/phong: giao vien, admin, super_admin.
 router.get('/admin/phong-hoc',requireRole('teacher'),c.adminList);
 router.post('/admin/phong-hoc',requireRole('teacher'),c.create);
 router.get('/admin/phong-hoc/:id',requireRole('teacher'),c.adminRoom);
@@ -21,7 +21,6 @@ router.post('/admin/phong-hoc/:id/cau-hinh',requireRole('teacher'),c.settings);
 router.post('/admin/phong-hoc/:id/dong',requireRole('teacher'),c.close);
 router.post('/admin/phong-hoc/tai-lieu',requireRole('teacher'),c.addMaterial);
 
-// Xóa vĩnh viễn một phòng học và toàn bộ dữ liệu con của phòng.
 router.post('/admin/phong-hoc/:id/xoa',requireRole('teacher'),async(req,res,next)=>{
   const client=await db.getClient();
   try{
