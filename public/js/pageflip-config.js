@@ -1,4 +1,4 @@
-/* Shared book-flip configuration. Do not override size/geometry: Reader + Classroom calculate stable fixed page sizes themselves. */
+/* Shared book-flip configuration. Per-view settings are respected so Classroom can disable direct page flipping while Reader keeps normal behavior. */
 (()=>{
   if(!window.St?.PageFlip) return;
   const Original=window.St.PageFlip;
@@ -9,13 +9,13 @@
         drawShadow:settings.drawShadow!==false,
         maxShadowOpacity:settings.maxShadowOpacity??.48,
         flippingTime:settings.flippingTime??620,
-        mobileScrollSupport:false,
+        mobileScrollSupport:settings.mobileScrollSupport??false,
         swipeDistance:settings.swipeDistance??35,
-        useMouseEvents:true,
-        clickEventForward:true,
-        showPageCorners:true,
-        disableFlipByClick:false,
-        showCover:false
+        useMouseEvents:settings.useMouseEvents??true,
+        clickEventForward:settings.clickEventForward??true,
+        showPageCorners:settings.showPageCorners??true,
+        disableFlipByClick:settings.disableFlipByClick??false,
+        showCover:settings.showCover??false
       });
     }
   };
