@@ -1,24 +1,16 @@
-/* Shared book-flip configuration for Reader + Classroom. Loaded after page-flip and before the page code. */
+/* Shared book-flip configuration. Do not override size/geometry: Reader + Classroom calculate stable fixed page sizes themselves. */
 (()=>{
   if(!window.St?.PageFlip) return;
   const Original=window.St.PageFlip;
   window.St.PageFlip=class extends Original{
     constructor(el,settings={}){
-      const mobile=window.matchMedia('(max-width: 760px)').matches;
       super(el,{
         ...settings,
-        size:'stretch',
-        autoSize:false,
-        usePortrait:mobile,
-        minWidth:mobile?240:300,
-        maxWidth:mobile?900:900,
-        minHeight:mobile?320:400,
-        maxHeight:mobile?1200:1100,
-        drawShadow:true,
-        maxShadowOpacity:.48,
-        flippingTime:760,
+        drawShadow:settings.drawShadow!==false,
+        maxShadowOpacity:settings.maxShadowOpacity??.48,
+        flippingTime:settings.flippingTime??620,
         mobileScrollSupport:false,
-        swipeDistance:28,
+        swipeDistance:settings.swipeDistance??35,
         useMouseEvents:true,
         clickEventForward:true,
         showPageCorners:true,
