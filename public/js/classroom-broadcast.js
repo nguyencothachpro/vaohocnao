@@ -21,42 +21,50 @@ function drawFrame(){
   if(!broadcasting||!mirrorCtx)return;
   const view=$('c3View');
   if(view){
-    const vw=view.clientWidth||1,vh=view.clientHeight||1;
-    const targetW=1280,targetH=Math.max(360,Math.round(targetW*vh/vw))||720;
-    if(mirrorCanvas.width!==targetW||mirrorCanvas.height!==targetH){mirrorCanvas.width=targetW;mirrorCanvas.height=targetH}
-    const scaleX=mirrorCanvas.width/vw,scaleY=mirrorCanvas.height/vh;
-    mirrorCtx.fillStyle='#eef2f7';mirrorCtx.fillRect(0,0,mirrorCanvas.width,mirrorCanvas.height);
     const viewRect=view.getBoundingClientRect();
-    document.querySelectorAll('#c3Book .c3-book-page').forEach(pageEl=>{
-      const r=pageEl.getBoundingClientRect();
-      if(r.right<viewRect.left||r.left>viewRect.right||r.bottom<viewRect.top||r.top>viewRect.bottom)return;
-      const dx=(r.left-viewRect.left)*scaleX,dy=(r.top-viewRect.top)*scaleY,dw=r.width*scaleX,dh=r.height*scaleY;
-      const pdfCanvas=pageEl.querySelector('canvas.pdf-page');
-      if(pdfCanvas){try{mirrorCtx.drawImage(pdfCanvas,dx,dy,dw,dh)}catch(_){}}
-      else{mirrorCtx.fillStyle='#fff';mirrorCtx.fillRect(dx,dy,dw,dh)}
-      const inkCanvas=pageEl.querySelector('canvas.ink');
-      if(inkCanvas){try{mirrorCtx.drawImage(inkCanvas,dx,dy,dw,dh)}catch(_){}}
-      const dot=pageEl.querySelector('.c3-laser-dot.ping');
-      if(dot){const dr=dot.getBoundingClientRect();const cx=(dr.left+dr.width/2-viewRect.left)*scaleX,cy=(dr.top+dr.height/2-viewRect.top)*scaleY;mirrorCtx.beginPath();mirrorCtx.fillStyle='rgba(239,68,68,.55)';mirrorCtx.arc(cx,cy,14*scaleX,0,Math.PI*2);mirrorCtx.fill()}
-    });
+    const pageEls=[...document.querySelectorAll('#c3Book .c3-book-page')].filter(p=>{const r=p.getBoundingClientRect();return !(r.right<viewRect.left||r.left>viewRect.right||r.bottom<viewRect.top||r.top>viewRect.bottom)});
+    if(pageEls.length&&viewRect.width>0){
+      let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+      pageEls.forEach(p=>{const r=p.getBoundingClientRect();minX=Math.min(minX,Math.max(r.left,viewRect.left));minY=Math.min(minY,Math.max(r.top,viewRect.top));maxX=Math.max(maxX,Math.min(r.right,viewRect.right));maxY=Math.max(maxY,Math.min(r.bottom,viewRect.bottom))});
+      const cropW=Math.max(1,maxX-minX),cropH=Math.max(1,maxY-minY);
+      const targetW=1280,targetH=Math.max(360,Math.round(targetW*cropH/cropW))||720;
+      if(mirrorCanvas.width!==targetW||mirrorCanvas.height!==targetH){mirrorCanvas.width=targetW;mirrorCanvas.height=targetH}
+      const scaleX=mirrorCanvas.width/cropW,scaleY=mirrorCanvas.height/cropH;
+      mirrorCtx.fillStyle='#fff';mirrorCtx.fillRect(0,0,mirrorCanvas.width,mirrorCanvas.height);
+      pageEls.forEach(pageEl=>{
+        const r=pageEl.getBoundingClientRect();
+        const dx=(r.left-minX)*scaleX,dy=(r.top-minY)*scaleY,dw=r.width*scaleX,dh=r.height*scaleY;
+        const pdfCanvas=pageEl.querySelector('canvas.pdf-page');
+        if(pdfCanvas){try{mirrorCtx.drawImage(pdfCanvas,dx,dy,dw,dh)}catch(_){}}
+        else{mirrorCtx.fillStyle='#fff';mirrorCtx.fillRect(dx,dy,dw,dh)}
+        const inkCanvas=pageEl.querySelector('canvas.ink');
+        if(inkCanvas){try{mirrorCtx.drawImage(inkCanvas,dx,dy,dw,dh)}catch(_){}}
+        const dot=pageEl.querySelector('.c3-laser-dot.ping');
+        if(dot){const dr=dot.getBoundingClientRect();const cx=(dr.left+dr.width/2-minX)*scaleX,cy=(dr.top+dr.height/2-minY)*scaleY;mirrorCtx.beginPath();mirrorCtx.fillStyle='rgba(239,68,68,.55)';mirrorCtx.arc(cx,cy,14*scaleX,0,Math.PI*2);mirrorCtx.fill()}
+      });
+    }else if(mirrorCanvas.width&&mirrorCanvas.height){
+      mirrorCtx.fillStyle='#111827';mirrorCtx.fillRect(0,0,mirrorCanvas.width,mirrorCanvas.height);
+      mirrorCtx.fillStyle='#fff';mirrorCtx.font='24px sans-serif';mirrorCtx.textAlign='center';
+      mirrorCtx.fillText('Đang chờ nội dung bảng giảng…',mirrorCanvas.width/2,mirrorCanvas.height/2);
+    }
   }
-  rafId=requestAnimationFrame(drawFrame);
 }
 
 function startBroadcast(){
   if(!C.isTeacher||broadcasting)return;
   mirrorCanvas=document.createElement('canvas');mirrorCanvas.width=1280;mirrorCanvas.height=720;
   mirrorCtx=mirrorCanvas.getContext('2d');
-  broadcasting=true;drawFrame();
+  broadcasting=true;
+  rafId=setInterval(drawFrame,80);
   mirrorStream=mirrorCanvas.captureStream(12);
   socket?.emit('classroom:teacher-stream');
   heartbeat=setInterval(()=>{if(broadcasting)socket?.emit('classroom:teacher-stream')},5000);
   const btn=$('c3BroadcastBtn');if(btn){btn.textContent='⏹ Dừng trình chiếu';btn.classList.add('active')}
-  toast('Đã bắt đầu trình chiếu trực tiếp cho cả lớp');
+  toast('Đã bắt đầu trình chiếu trực tiếp cho cả lớp — vẫn chạy dù bạn chuyển sang cửa sổ khác');
 }
 
 function stopBroadcast(){
-  broadcasting=false;cancelAnimationFrame(rafId);clearInterval(heartbeat);
+  broadcasting=false;clearInterval(rafId);clearInterval(heartbeat);
   for(const [,pc] of peers){try{pc.close()}catch(_){}}
   peers.clear();
   mirrorStream?.getTracks().forEach(t=>t.stop());mirrorStream=null;
