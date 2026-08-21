@@ -53,6 +53,23 @@ router.post('/phong-hoc/:code/permissions/:studentId',requireAnyLogin,async(req,
   }catch(e){next(e)}
 });
 
+router.post('/phong-hoc/:code/permissions-all',requireAnyLogin,async(req,res,next)=>{
+  try{
+    const code=String(req.params.code||'').trim();
+    const room=(await db.query('SELECT id,teacher_id,status FROM classrooms WHERE room_code=$1',[code])).rows[0];
+    const user=req.session.adminUser||req.session.user||null;
+    const isTeacher=Boolean(room&&user&&(Number(user.id)===Number(room.teacher_id)||['super_admin','admin'].includes(user.role)));
+    if(!isTeacher)return res.status(403).json({error:'Chỉ giáo viên mới được cấp quyền'});
+    const hasNavigate=Object.prototype.hasOwnProperty.call(req.body,'canNavigate');
+    if(!hasNavigate)return res.status(400).json({error:'Thiếu quyền cần cập nhật'});
+    const nav=Boolean(req.body.canNavigate);
+    const rows=(await db.query('UPDATE classroom_students SET can_navigate=$1 WHERE classroom_id=$2 RETURNING id',[nav,room.id])).rows;
+    const io=req.app.locals.io;
+    if(io){for(const [,s] of io.sockets.sockets){if(s.data.roomId===room.id&&s.data.role==='student'){s.data.canNavigate=nav;s.emit('classroom:navigate-status',{userId:s.data.studentId,allow:nav})}}}
+    return res.json({ok:true,count:rows.length,canNavigate:nav});
+  }catch(e){next(e)}
+});
+
 router.get('/admin/phong-hoc',requireRole('teacher'),c.adminList);
 router.post('/admin/phong-hoc',requireRole('teacher'),c.create);
 router.get('/admin/phong-hoc/:id',requireRole('teacher'),c.adminRoom);
