@@ -47,15 +47,46 @@ exports.addMaterial=async(req,res)=>{
   res.redirect('/phong-hoc/'+req.body.room_code);
 };
 
+function extractDriveId(url){
+  const m=String(url||'').match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:[^#]*&)?id=)([^/?&#]+)/i);
+  return m?.[1]||null;
+}
+
+async function downloadPdf(url){
+  const driveId=extractDriveId(url);
+  const candidates=[];
+  if(driveId){
+    candidates.push(`https://drive.usercontent.google.com/download?id=${encodeURIComponent(driveId)}&export=download&confirm=t`);
+    candidates.push(`https://drive.google.com/uc?export=download&id=${encodeURIComponent(driveId)}&confirm=t`);
+  }
+  candidates.push(url);
+
+  let lastError=null;
+  for(const candidate of candidates){
+    try{
+      const up=await axios.get(candidate,{responseType:'arraybuffer',maxRedirects:8,timeout:30000,headers:{'User-Agent':'Mozilla/5.0','Accept':'application/pdf,application/octet-stream,*/*'}});
+      const data=Buffer.from(up.data);
+      const contentType=String(up.headers['content-type']||'').toLowerCase();
+      const isPdf=data.subarray(0,4).toString('ascii')==='%PDF' || contentType.includes('application/pdf');
+      if(isPdf)return {data,contentType:contentType.includes('pdf')?'application/pdf':'application/pdf'};
+      lastError=new Error(`Nguồn không trả về PDF (${contentType||'không có content-type'})`);
+    }catch(e){lastError=e;}
+  }
+  throw lastError||new Error('Không tải được PDF');
+}
+
 exports.pdf=async(req,res)=>{
   const room=(await db.query('SELECT pdf_url FROM classrooms WHERE room_code=$1',[req.params.code])).rows[0];
-  if(!room?.pdf_url)return res.status(404).end();
-  let url=room.pdf_url.trim();
-  const m=url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-  if(m) url=`https://drive.google.com/uc?export=download&id=${m[1]}`;
+  if(!room?.pdf_url)return res.status(404).send('Phòng học chưa có PDF.');
   try{
-    const up=await axios.get(url,{responseType:'stream',maxRedirects:5,headers:{'User-Agent':'Mozilla/5.0'}});
-    res.setHeader('Content-Type',up.headers['content-type']||'application/pdf');
-    up.data.pipe(res);
-  }catch(e){console.error('Loi tai PDF phong hoc:',e.message);res.status(502).send('Không tải được PDF của phòng học. Hãy kiểm tra link chia sẻ.');}
+    const pdf=await downloadPdf(room.pdf_url.trim());
+    res.setHeader('Content-Type','application/pdf');
+    res.setHeader('Content-Length',String(pdf.data.length));
+    res.setHeader('Cache-Control','private, max-age=300');
+    res.setHeader('Content-Disposition','inline; filename="bai-giang.pdf"');
+    return res.status(200).send(pdf.data);
+  }catch(e){
+    console.error('Loi tai PDF phong hoc:',e.message);
+    return res.status(502).send('Không tải được PDF của phòng học. Hãy dùng link PDF công khai hoặc upload PDF lên kho lưu trữ và dán link trực tiếp.');
+  }
 };
