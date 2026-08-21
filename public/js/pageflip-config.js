@@ -20,3 +20,4 @@
     }
   };
 })();
+(()=>{const load=()=>{if(document.querySelector('script[data-c3-realtime-fix]'))return;const s=document.createElement('script');s.src='/js/classroom-realtime-fix.js?v=20260821-4';s.dataset.c3RealtimeFix='1';document.head.appendChild(s)};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load);else setTimeout(load,50)})();
