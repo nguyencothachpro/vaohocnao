@@ -15,3 +15,8 @@
 .c3-laser-dot{position:absolute;width:22px;height:22px;margin-left:-11px;margin-top:-11px;border-radius:50%;background:radial-gradient(circle,rgba(239,68,68,.95) 0%,rgba(239,68,68,.55) 55%,rgba(239,68,68,0) 75%);pointer-events:none;opacity:0;z-index:50}
 .c3-laser-dot.ping{animation:c3LaserPing 1.8s ease-out forwards}
 @keyframes c3LaserPing{0%{opacity:1;transform:scale(.6)}15%{opacity:1;transform:scale(1.15)}30%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:scale(1)}}
+.c3-broadcast-btn{margin-left:8px;background:#fff;color:#dc2626;border-color:#fecaca}
+.c3-broadcast-btn.active{background:#dc2626;color:#fff;border-color:#dc2626;animation:c3BroadcastPulse 1.6s ease-in-out infinite}
+@keyframes c3BroadcastPulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.45)}50%{box-shadow:0 0 0 6px rgba(220,38,38,0)}}
+.c3-live-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;z-index:40;display:none}
+.c3-live-banner{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(220,38,38,.95);color:#fff;padding:6px 16px;border-radius:999px;font-size:12px;font-weight:800;z-index:41;display:none;align-items:center;gap:6px;box-shadow:0 6px 18px rgba(220,38,38,.35)}
