@@ -6,7 +6,7 @@ const {requireAnyLogin,requireRole}=require('../middleware/auth');
 const db=require('../config/db');
 
 router.get('/phong-hoc',requireAnyLogin,c.list);
-router.get('/phong-hoc/:code',c.room);
+router.get('/phong-hoc/:code',(req,res,next)=>{res.set('Cache-Control','no-store, no-cache, must-revalidate');next()},c.room);
 router.post('/phong-hoc/:code/vao',c.joinByCode);
 router.get('/phong-hoc/:code/pdf',c.pdf);
 router.get('/phong-hoc/:code/material-pdf',requireAnyLogin,materialProxy.pdf);
