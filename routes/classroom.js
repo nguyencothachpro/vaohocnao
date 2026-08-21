@@ -3,11 +3,11 @@ const router=express.Router();
 const c=require('../controllers/classroomController');
 const {requireAnyLogin,requireRole}=require('../middleware/auth');
 
-// Danh sach phong van yeu cau dang nhap. Trang phong co the hien man hinh nhap ma hoc vien.
+// Danh sach phong van yeu cau dang nhap. Trang phong co the vao bang ma hoc vien rieng.
 router.get('/phong-hoc',requireAnyLogin,c.list);
-router.get('/phong-hoc/:code',requireAnyLogin,c.room);
-router.post('/phong-hoc/:code/vao',requireAnyLogin,c.joinByCode);
-router.get('/phong-hoc/:code/pdf',requireAnyLogin,c.pdf);
+router.get('/phong-hoc/:code',c.room);
+router.post('/phong-hoc/:code/vao',c.joinByCode);
+router.get('/phong-hoc/:code/pdf',c.pdf);
 
 // Quan ly lop/phong: giao vien, admin, super_admin.
 router.get('/admin/phong-hoc',requireRole('teacher'),c.adminList);
