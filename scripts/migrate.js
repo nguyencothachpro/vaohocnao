@@ -10,20 +10,18 @@ async function migrate() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error('Thieu DATABASE_URL');
 
-  // Create the isolated schema using a root connection first.
   const rootPool = new Pool({
     connectionString,
-    ssl: /localhost|127\.0\.0\.1/.test(connectionString) ? false : { rejectUnauthorized:false }
+    ssl: /localhost|127\\.0\\.1/.test(connectionString) ? false : { rejectUnauthorized:false }
   });
-  await rootPool.query(`CREATE SCHEMA IF NOT EXISTS "${schema}"`);
+  await rootPool.query(`CREATE SCHEMA IF NOT EXISTS \"${schema}\"`);
   await rootPool.end();
 
-  // Only after the schema exists do we load the application DB module.
   const db = require('../config/db');
   const client = await db.getClient();
   try {
     await client.query('BEGIN');
-    await client.query(`SET LOCAL search_path TO "${schema}", public`);
+    await client.query(`SET LOCAL search_path TO \"${schema}\", public`);
     const baseSchema = fs.readFileSync(path.join(__dirname,'schema.sql'),'utf8');
     await client.query(baseSchema);
 
@@ -102,18 +100,61 @@ async function migrate() {
         url TEXT,
         position INTEGER NOT NULL DEFAULT 0
       );
+
+      -- Quan ly lop hoc that: moi hoc vien co ma rieng, quyen rieng va trang thai rieng.
+      CREATE TABLE IF NOT EXISTS classroom_students (
+        id SERIAL PRIMARY KEY,
+        classroom_id INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        student_code TEXT NOT NULL UNIQUE,
+        display_name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')),
+        can_write BOOLEAN NOT NULL DEFAULT FALSE,
+        ask_teacher BOOLEAN NOT NULL DEFAULT TRUE,
+        last_seen TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT now()
+      );
+      ALTER TABLE classroom_students ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE classroom_students ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
+      ALTER TABLE classroom_students ADD COLUMN IF NOT EXISTS can_write BOOLEAN NOT NULL DEFAULT FALSE;
+      ALTER TABLE classroom_students ADD COLUMN IF NOT EXISTS ask_teacher BOOLEAN NOT NULL DEFAULT TRUE;
+      ALTER TABLE classroom_students ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ;
+      CREATE INDEX IF NOT EXISTS idx_classroom_students_classroom ON classroom_students(classroom_id);
+      CREATE INDEX IF NOT EXISTS idx_classroom_students_code ON classroom_students(student_code);
+
+      CREATE TABLE IF NOT EXISTS classroom_settings (
+        classroom_id INTEGER PRIMARY KEY REFERENCES classrooms(id) ON DELETE CASCADE,
+        ask_teacher_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT now(),
+        updated_at TIMESTAMPTZ DEFAULT now()
+      );
+      INSERT INTO classroom_settings(classroom_id)
+      SELECT id FROM classrooms c WHERE NOT EXISTS (SELECT 1 FROM classroom_settings s WHERE s.classroom_id=c.id);
+
+      CREATE TABLE IF NOT EXISTS classroom_notes (
+        id SERIAL PRIMARY KEY,
+        classroom_id INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
+        student_id INTEGER REFERENCES classroom_students(id) ON DELETE CASCADE,
+        title TEXT NOT NULL DEFAULT 'Ghi chú mới',
+        template TEXT NOT NULL DEFAULT 'paper',
+        content TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ DEFAULT now(),
+        updated_at TIMESTAMPTZ DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_classroom_notes_student ON classroom_notes(student_id, classroom_id);
+
       CREATE INDEX IF NOT EXISTS idx_enrollments_expiry ON enrollments(user_id, course_id, expires_at);
       CREATE INDEX IF NOT EXISTS idx_activation_product ON activation_codes(product_type, book_id, online_book_id);
-      CREATE TABLE IF NOT EXISTS "session" (
-        "sid" varchar NOT NULL PRIMARY KEY,
-        "sess" json NOT NULL,
-        "expire" timestamp(6) NOT NULL
+      CREATE TABLE IF NOT EXISTS \"session\" (
+        \"sid\" varchar NOT NULL PRIMARY KEY,
+        \"sess\" json NOT NULL,
+        \"expire\" timestamp(6) NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+      CREATE INDEX IF NOT EXISTS \"IDX_session_expire\" ON \"session\" (\"expire\");
     `;
     await client.query(extras);
     await client.query('COMMIT');
-    console.log(`>>> LMS schema "${schema}" ready. Legacy public tables are untouched.`);
+    console.log(`>>> LMS schema \"${schema}\" ready. Legacy public tables are untouched.`);
   } catch (err) {
     await client.query('ROLLBACK').catch(()=>{});
     console.error('>>> MIGRATION FAILED:', err.stack || err);

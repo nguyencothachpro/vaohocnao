@@ -1,0 +1,11 @@
+/* Responsive horizontal classroom/book layout */
+.classroom-stage{overflow:hidden!important;display:flex;flex-direction:row;min-width:0}
+#bookViewport{overflow-x:auto!important;overflow-y:hidden!important;scroll-behavior:smooth;touch-action:pan-x;overscroll-behavior-x:contain;display:flex;align-items:center;justify-content:center;min-width:0}
+#pages{display:flex!important;flex-direction:row!important;align-items:center;justify-content:center;gap:0;min-width:max-content;height:100%;transform-origin:center center!important}
+#pages .page-host{flex:0 0 auto;position:relative;max-height:calc(100vh - 170px);height:min(78vh,900px);width:auto;aspect-ratio:707/1000;scroll-snap-align:center;box-shadow:0 8px 30px rgba(15,23,42,.18);background:#fff;overflow:hidden}
+#pages .page-host:not(.is-current){display:none}
+#pages .page-host.is-current{display:block}
+.draw-layer{position:absolute;inset:0;z-index:5;touch-action:none}
+.pointer-mode .draw-layer{pointer-events:none}
+@media(max-width:1000px){.classroom-app{height:100dvh!important}.classroom-stage{height:calc(100dvh - 58px)!important}.right-panel,.right-tabs{display:none}.page-host{height:calc(100dvh - 130px)!important;max-width:92vw!important}.classroom-stage #bookViewport{width:100%!important}.side-tool{min-height:52px}}
+@media(max-width:600px){.page-host{height:calc(100dvh - 115px)!important;max-width:96vw!important}.classroom-topbar{padding:6px!important}.page-host{box-shadow:0 3px 16px rgba(15,23,42,.2)}}
