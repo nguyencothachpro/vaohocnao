@@ -1,24 +1,169 @@
 <% var pageTitle = 'Đọc: ' + book.title %>
 <%- include('partials/header') %>
-<div class="reader-shell">
-  <div class="reader-header"><div><h5 class="fw-bold mb-0"><%=book.title%></h5><div class="small text-muted">Sách lật · zoom · mục lục · note · bút · đánh dấu</div></div><div class="reader-tools"><button id="tocBtn" class="reader-btn">☰ Mục lục</button><button id="prevBtn" class="reader-btn">←</button><label class="reader-page"><input id="pageInput" type="number" min="1" value="1"><span>/ <b id="totalPages">1</b></span></label><button id="nextBtn" class="reader-btn">→</button><button id="zoomOut" class="reader-btn">−</button><span id="zoomLabel">100%</span><button id="zoomIn" class="reader-btn">+</button><button id="fitBtn" class="reader-btn">Fit</button><button id="rotateBtn" class="reader-btn">↻</button><button id="fullscreenBtn" class="reader-btn">⛶</button></div></div>
-  <div class="reader-body"><aside id="tocPanel" class="reader-panel d-none"><div class="d-flex justify-content-between mb-2"><b>MỤC LỤC</b><button id="tocClose" class="btn-close"></button></div><div id="tocList"></div></aside><main id="readerStage" class="reader-stage"><div id="flipbook"></div><div id="readerLoading" class="reader-loading"><div class="spinner-border spinner-border-sm"></div><div class="mt-2">Đang tải sách...</div></div></main><aside class="reader-actions"><div class="action-title">CÔNG CỤ</div><button id="bookmarkBtn" class="action-btn">🔖 Đánh dấu trang</button><button id="noteBtn" class="action-btn">📝 Ghi chú</button><button id="penBtn" class="action-btn">✎ Viết lên trang</button><button id="highlightBtn" class="action-btn">🖍 Đánh dấu</button><button id="clearInkBtn" class="action-btn">⌫ Xóa nét</button><div id="bookmarkStatus" class="small text-success mt-2"></div><hr><div class="small text-muted">Nét viết và ghi chú chỉ là lớp chú thích của bạn, không thay đổi file PDF gốc.</div></aside></div>
-  <div id="notePanel" class="note-panel d-none"><div class="d-flex justify-content-between"><b>Ghi chú trang <span id="notePage">1</span></b><button id="noteClose" class="btn-close"></button></div><textarea id="noteText" placeholder="Ghi công thức, ý chính, câu hỏi..."></textarea><button id="saveNote" class="btn btn-primary btn-sm">Lưu ghi chú</button></div>
+
+<div class="reader-shell" id="readerShell">
+  <div class="reader-header">
+    <div class="reader-title-wrap">
+      <h5 class="fw-bold mb-0"><%=book.title%></h5>
+      <div class="small text-muted">Sách lật · đọc lớn · zoom · mục lục · note · bút · đánh dấu</div>
+    </div>
+    <div class="reader-tools">
+      <button id="tocBtn" class="reader-btn">☰ Mục lục</button>
+      <button id="prevBtn" class="reader-btn" title="Trang trước">←</button>
+      <label class="reader-page"><input id="pageInput" type="number" min="1" value="1"><span>/ <b id="totalPages">1</b></span></label>
+      <button id="nextBtn" class="reader-btn" title="Trang sau">→</button>
+      <button id="zoomOut" class="reader-btn">−</button><span id="zoomLabel">100%</span><button id="zoomIn" class="reader-btn">+</button>
+      <button id="fitBtn" class="reader-btn">Fit</button>
+      <button id="spreadBtn" class="reader-btn" title="Đổi 1 trang / 2 trang">1 trang</button>
+      <button id="focusBtn" class="reader-btn" title="Ẩn công cụ để đọc rộng hơn">📖 Đọc</button>
+      <button id="fullscreenBtn" class="reader-btn">⛶</button>
+    </div>
+  </div>
+
+  <div class="reader-body">
+    <aside id="tocPanel" class="reader-panel d-none">
+      <div class="d-flex justify-content-between align-items-center mb-2"><b>MỤC LỤC</b><button id="tocClose" class="btn-close"></button></div>
+      <div id="tocList"></div>
+    </aside>
+
+    <main id="readerStage" class="reader-stage">
+      <div class="reader-stage-top">
+        <span id="readerModeLabel">2 trang · tối ưu đọc</span>
+        <span>Cuộn/zoom để xem chi tiết · kéo mép trang để lật</span>
+      </div>
+      <div id="flipbook"></div>
+      <div id="readerLoading" class="reader-loading"><div class="spinner-border spinner-border-sm"></div><div class="mt-2">Đang tải sách...</div></div>
+    </main>
+
+    <aside class="reader-actions">
+      <div class="action-title">CÔNG CỤ ĐỌC SÁCH</div>
+      <button id="bookmarkBtn" class="action-btn">🔖 Đánh dấu trang</button>
+      <button id="noteBtn" class="action-btn">📝 Ghi chú trang</button>
+      <button id="penBtn" class="action-btn">✎ Viết lên trang</button>
+      <button id="highlightBtn" class="action-btn">🖍 Đánh dấu</button>
+      <button id="clearInkBtn" class="action-btn">⌫ Xóa nét</button>
+      <div id="bookmarkStatus" class="small text-success mt-2"></div>
+      <div id="penOptions" class="reader-pen-options d-none">
+        <div class="small fw-bold mb-1">Màu bút</div>
+        <div class="pen-colors">
+          <button class="pen-color active" data-color="#ef4444" style="background:#ef4444"></button>
+          <button class="pen-color" data-color="#2563eb" style="background:#2563eb"></button>
+          <button class="pen-color" data-color="#111827" style="background:#111827"></button>
+          <button class="pen-color" data-color="#16a34a" style="background:#16a34a"></button>
+        </div>
+        <select id="penWidth" class="form-select form-select-sm"><option value="1.5">Nét mảnh</option><option value="3" selected>Nét vừa</option><option value="5">Nét đậm</option><option value="8">Nét rất đậm</option><option value="12">Nét siêu đậm</option></select>
+      </div>
+      <hr>
+      <div class="small text-muted">Nét viết và ghi chú là lớp chú thích riêng, không làm thay đổi file PDF gốc.</div>
+    </aside>
+  </div>
+
+  <div id="notePanel" class="note-panel d-none">
+    <div class="d-flex justify-content-between align-items-center"><b>Ghi chú trang <span id="notePage">1</span></b><button id="noteClose" class="btn-close"></button></div>
+    <div class="note-template-row">
+      <button data-note-template="paper" class="active">📄</button><button data-note-template="lined">☰</button><button data-note-template="grid">▦</button><button data-note-template="dot">⠿</button><button data-note-template="dark">🌙</button>
+    </div>
+    <div class="note-options"><select id="noteFontSize" class="form-select form-select-sm"><option value="14">14</option><option value="16" selected>16</option><option value="18">18</option><option value="20">20</option></select><button id="saveNote" class="btn btn-primary btn-sm">Lưu</button></div>
+    <textarea id="noteText" class="note-paper-paper" placeholder="Ghi công thức, ý chính, câu hỏi..."></textarea>
+    <div id="noteSaved" class="small text-success mt-1">✓ Tự lưu trên thiết bị</div>
+  </div>
 </div>
+
 <style>
-.reader-shell{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;min-height:calc(100vh - 130px);position:relative}.reader-header{background:#fff;border-bottom:1px solid #e2e8f0;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px}.reader-tools{display:flex;align-items:center;gap:5px;flex-wrap:wrap}.reader-btn{border:1px solid #cbd5e1;background:#fff;border-radius:7px;padding:6px 9px;font-size:12px}.reader-page{display:flex;align-items:center;gap:3px;font-size:12px}.reader-page input{width:48px;border:1px solid #cbd5e1;border-radius:6px;padding:5px;text-align:center}.reader-body{height:calc(100vh - 205px);min-height:560px;display:grid;grid-template-columns:260px minmax(0,1fr) 190px;position:relative}.reader-stage{position:relative;overflow:auto;background:radial-gradient(circle at center,#f8fafc,#dbe3ed);display:flex;justify-content:center;align-items:flex-start;padding:30px}.reader-stage>#flipbook{width:720px;transform-origin:center top;transition:transform .15s ease}.reader-panel{position:absolute;left:0;top:0;bottom:0;width:260px;background:#fff;z-index:30;padding:14px;border-right:1px solid #e2e8f0;overflow:auto;box-shadow:10px 0 25px rgba(15,23,42,.08)}.reader-panel.d-none{display:none!important}.toc-row{display:block;width:100%;text-align:left;border:0;background:#fff;padding:8px 5px;border-bottom:1px solid #f1f5f9}.toc-row:hover{background:#eff6ff}.reader-actions{background:#fff;border-left:1px solid #e2e8f0;padding:12px}.action-title{font-size:10px;color:#64748b;font-weight:800;margin-bottom:8px}.action-btn{width:100%;text-align:left;border:1px solid #e2e8f0;background:#fff;border-radius:8px;padding:9px 8px;margin-bottom:6px;font-size:12px}.action-btn.active{background:#eff6ff;border-color:#93c5fd}.note-panel{position:absolute;right:205px;top:70px;width:330px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;z-index:50;box-shadow:0 15px 40px rgba(15,23,42,.2)}.note-panel textarea{width:100%;min-height:180px;margin:10px 0;padding:9px;border:1px solid #cbd5e1;border-radius:8px}.reader-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#64748b;background:rgba(241,245,249,.86);z-index:20}.storypage{background:#fdfaf3;width:100%;height:100%;overflow:hidden}.storypage-inner{padding:28px;height:100%;overflow:auto;line-height:1.7}.pdfpage{position:relative;background:#fff;display:flex;align-items:center;justify-content:center}.pdf-canvas{width:100%;height:100%;display:block}.ink-layer{position:absolute;inset:0;width:100%;height:100%;touch-action:none}.reader-stage.ink-mode .ink-layer,.reader-stage.highlight-mode .ink-layer{cursor:crosshair}@media(max-width:1100px){.reader-body{grid-template-columns:1fr}.reader-actions{display:none}.reader-header{align-items:flex-start;flex-direction:column}.reader-stage{height:calc(100vh - 260px)}}
+.reader-shell{background:#e8edf3;border:1px solid #d8e0e9;border-radius:14px;overflow:hidden;min-height:calc(100vh - 125px);height:calc(100vh - 125px);position:relative;box-shadow:0 14px 40px rgba(15,23,42,.10)}
+.reader-header{height:64px;background:#fff;border-bottom:1px solid #dfe5ec;padding:9px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;position:relative;z-index:60}.reader-title-wrap{min-width:220px}.reader-tools{display:flex;align-items:center;justify-content:flex-end;gap:5px;flex-wrap:wrap}.reader-btn{border:1px solid #cbd5e1;background:#fff;border-radius:7px;padding:6px 9px;font-size:12px;white-space:nowrap}.reader-btn:hover{background:#f8fafc;border-color:#94a3b8}.reader-page{display:flex;align-items:center;gap:3px;font-size:12px}.reader-page input{width:48px;border:1px solid #cbd5e1;border-radius:6px;padding:5px;text-align:center}
+.reader-body{height:calc(100% - 64px);min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 240px;position:relative}.reader-stage{position:relative;overflow:auto;background:radial-gradient(circle at center,#ffffff 0,#eef3f8 55%,#dce4ee 100%);display:flex;justify-content:center;align-items:flex-start;padding:28px 24px 38px;min-width:0}.reader-stage-top{position:absolute;top:8px;left:14px;right:14px;display:flex;justify-content:space-between;color:#64748b;font-size:10px;z-index:5;pointer-events:none}.reader-stage>#flipbook{position:relative;flex:none;transform-origin:center top;transition:transform .15s ease;margin-top:10px}.reader-actions{background:#fff;border-left:1px solid #dfe5ec;padding:14px;overflow:auto;z-index:20}.action-title{font-size:10px;color:#64748b;font-weight:800;margin-bottom:9px;letter-spacing:.04em}.action-btn{width:100%;text-align:left;border:1px solid #dfe5ec;background:#fff;border-radius:9px;padding:10px 9px;margin-bottom:7px;font-size:12px;cursor:pointer}.action-btn:hover{background:#f8fafc}.action-btn.active{background:#eff6ff;border-color:#60a5fa;color:#1d4ed8}.reader-pen-options{border:1px solid #e2e8f0;border-radius:9px;padding:9px;margin:2px 0 8px;background:#f8fafc}.pen-colors{display:flex;gap:7px;margin-bottom:7px}.pen-color{width:22px;height:22px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #94a3b8;padding:0;cursor:pointer}.pen-color.active{box-shadow:0 0 0 2px #2563eb}.reader-panel{position:absolute;left:0;top:0;bottom:0;width:310px;max-width:90%;background:#fff;z-index:40;padding:14px;border-right:1px solid #e2e8f0;overflow:auto;box-shadow:12px 0 30px rgba(15,23,42,.12)}.reader-panel.d-none{display:none!important}.toc-row{display:block;width:100%;text-align:left;border:0;background:#fff;padding:9px 6px;border-bottom:1px solid #f1f5f9;font-size:12px;line-height:1.4}.toc-row:hover{background:#eff6ff}.toc-row.locked{color:#9ca3af}
+.note-panel{position:absolute;right:255px;top:78px;width:360px;max-width:calc(100% - 30px);background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:12px;z-index:70;box-shadow:0 18px 45px rgba(15,23,42,.20)}.note-template-row{display:flex;gap:5px;margin:9px 0 7px}.note-template-row button{border:1px solid #dbe2ea;background:#fff;border-radius:7px;width:34px;height:30px}.note-template-row button.active{border-color:#60a5fa;background:#eff6ff}.note-options{display:grid;grid-template-columns:1fr auto;gap:6px;margin-bottom:7px}.note-panel textarea{width:100%;min-height:210px;padding:12px;border:1px solid #cbd5e1;border-radius:8px;resize:vertical;line-height:1.75;outline:none}.note-paper-paper{background:#fff}.note-paper-lined{background:repeating-linear-gradient(to bottom,#fff 0,#fff 31px,#dbeafe 32px)}.note-paper-grid{background-image:linear-gradient(#dbeafe 1px,transparent 1px),linear-gradient(90deg,#dbeafe 1px,transparent 1px);background-size:22px 22px}.note-paper-dot{background-image:radial-gradient(#94a3b8 .8px,transparent .9px);background-size:16px 16px}.note-paper-dark{background:#172033;color:#f8fafc;border-color:#334155}
+.reader-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#64748b;background:rgba(241,245,249,.90);z-index:50}.storypage{background:#fdfaf3;width:100%;height:100%;overflow:hidden}.storypage-inner{padding:28px;height:100%;overflow:auto;line-height:1.75}.pdfpage{position:relative;background:#fff;display:flex;align-items:center;justify-content:center}.pdf-canvas{width:100%;height:100%;display:block}.ink-layer{position:absolute;inset:0;width:100%;height:100%;touch-action:none}.reader-stage.ink-mode .ink-layer,.reader-stage.highlight-mode .ink-layer{cursor:crosshair}.reader-focus .reader-actions{display:none}.reader-focus .reader-body{grid-template-columns:1fr}.reader-focus .reader-stage{padding-left:36px;padding-right:36px}.reader-focus .reader-stage-top span:last-child{display:none}
+@media(max-width:1100px){.reader-shell{height:calc(100dvh - 80px);min-height:0}.reader-header{height:auto;align-items:flex-start;flex-direction:column}.reader-body{height:calc(100% - 92px)}.reader-actions{display:none}.reader-stage{padding:22px 10px 28px}.reader-stage-top{top:5px;font-size:9px}.note-panel{right:15px;top:100px}.reader-focus .reader-actions{display:none}}
+@media(max-width:650px){.reader-shell{border-radius:0;width:100vw;margin-left:calc(50% - 50vw)}.reader-tools{width:100%;justify-content:flex-start}.reader-tools #zoomLabel,.reader-tools #fitBtn{display:none}.reader-btn{padding:5px 7px}.reader-stage{padding:16px 5px 20px}.reader-stage-top{display:none}.note-panel{left:10px;right:10px;width:auto}}
 </style>
+
 <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-(async()=>{const mode=<%-JSON.stringify(mode)%>,slug=<%-JSON.stringify(book.slug)%>,unlocked=<%-unlocked?'true':'false'%>,flipEl=document.getElementById('flipbook'),stage=document.getElementById('readerStage'),loading=document.getElementById('readerLoading');let flip=null,pages=[],current=0,zoom=1,rotation=0,ink=false,highlight=false;const storeKey='reader:'+slug,store=JSON.parse(localStorage.getItem(storeKey)||'{}');
-function zoomUI(){flipEl.style.transform=`scale(${zoom}) rotate(${rotation}deg)`;document.getElementById('zoomLabel').textContent=Math.round(zoom*100)+'%'}function page(n){current=Math.max(0,Math.min(pages.length-1,Number(n)||0));try{flip?.flip(current)}catch(e){}document.getElementById('pageInput').value=current+1;document.getElementById('notePage').textContent=current+1;loadNote()}
-function inkLayer(host){const c=document.createElement('canvas');c.className='ink-layer';host.appendChild(c);const resize=()=>{const r=host.getBoundingClientRect();if(!r.width||!r.height)return;c.width=r.width*devicePixelRatio;c.height=r.height*devicePixelRatio;c.style.width=r.width+'px';c.style.height=r.height+'px'};if(window.ResizeObserver)new ResizeObserver(resize).observe(host);resize();let down=false,last=null;c.onpointerdown=e=>{if(!ink&&!highlight)return;c.setPointerCapture(e.pointerId);down=true;last=[e.offsetX,e.offsetY]};c.onpointerup=()=>{down=false;last=null};c.onpointermove=e=>{if(!down)return;const x=c.getContext('2d');x.save();x.scale(devicePixelRatio,devicePixelRatio);x.lineCap='round';x.lineWidth=highlight?18:3;x.strokeStyle=highlight?'rgba(250,204,21,.35)':'#ef4444';x.beginPath();x.moveTo(last[0],last[1]);x.lineTo(e.offsetX,e.offsetY);x.stroke();x.restore();last=[e.offsetX,e.offsetY]};return c}
-function toc(entries){const el=document.getElementById('tocList');el.innerHTML='';entries.forEach(e=>{const b=document.createElement('button');b.className='toc-row';b.textContent=e.title+(e.locked?' 🔒':'');b.onclick=()=>e.locked?location.href='/doc-sach-online/'+slug:page(e.pageIndex);el.appendChild(b)})}
-try{if(mode==='chapters'){const src=document.querySelectorAll('#pageSource .storypage');pages=[...src];flipEl.innerHTML='';pages.forEach(p=>{flipEl.appendChild(p);inkLayer(p)});flip=new St.PageFlip(flipEl,{width:720,height:1018,size:'stretch',minWidth:280,maxWidth:1000,minHeight:390,maxHeight:1400,showCover:true});flip.loadFromHTML(pages);flip.on('flip',e=>page(e.data));toc(<%-JSON.stringify((chapters||[]).map((c,i)=>({title:'Chương '+(i+1)+': '+c.title,pageIndex:i,locked:!c.unlocked})))%>)}else{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';const pdf=await pdfjsLib.getDocument('/doc-sach-online/'+slug+'/file').promise,total=pdf.numPages,limit=unlocked?total:Math.min(3,total);for(let i=1;i<=limit;i++){const p=await pdf.getPage(i),vp=p.getViewport({scale:1.5}),wrap=document.createElement('div');wrap.className='storypage pdfpage';const c=document.createElement('canvas');c.className='pdf-canvas';c.width=vp.width;c.height=vp.height;await p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;wrap.appendChild(c);inkLayer(wrap);flipEl.appendChild(wrap);pages.push(wrap)}const manual=<%-JSON.stringify((manualToc||[]).map(e=>({title:e.title,pageNumber:e.page_number})))%>;const entries=manual.map(e=>({title:e.title,pageIndex:Math.max(0,(e.pageNumber||1)-1),locked:!unlocked&&e.pageNumber>limit}));toc(entries);flip=new St.PageFlip(flipEl,{width:720,height:1018,size:'stretch',minWidth:280,maxWidth:1000,minHeight:390,maxHeight:1400,showCover:true});flip.loadFromHTML(pages);flip.on('flip',e=>{current=e.data;document.getElementById('pageInput').value=current+1;document.getElementById('notePage').textContent=current+1;loadNote()});document.getElementById('totalPages').textContent=total}document.getElementById('totalPages').textContent=document.getElementById('totalPages').textContent==='1'?pages.length:document.getElementById('totalPages').textContent;page(0);zoomUI();loading.classList.add('d-none')}catch(e){console.error(e);loading.innerHTML='<div class="text-danger">Không tải được sách. Hãy kiểm tra file PDF/link trong Admin.</div>';return}
-document.getElementById('prevBtn').onclick=()=>page(current-1);document.getElementById('nextBtn').onclick=()=>page(current+1);document.getElementById('pageInput').onchange=e=>page(Number(e.target.value)-1);document.getElementById('zoomIn').onclick=()=>{zoom=Math.min(2.5,zoom+.1);zoomUI()};document.getElementById('zoomOut').onclick=()=>{zoom=Math.max(.5,zoom-.1);zoomUI()};document.getElementById('fitBtn').onclick=()=>{zoom=1;rotation=0;zoomUI();stage.scrollTo({top:0,left:0})};document.getElementById('rotateBtn').onclick=()=>{rotation=(rotation+90)%360;zoomUI()};document.getElementById('fullscreenBtn').onclick=async()=>{if(!document.fullscreenElement)await document.querySelector('.reader-shell').requestFullscreen?.();else await document.exitFullscreen?.()};document.getElementById('tocBtn').onclick=()=>document.getElementById('tocPanel').classList.toggle('d-none');document.getElementById('tocClose').onclick=()=>document.getElementById('tocPanel').classList.add('d-none');
-document.getElementById('penBtn').onclick=()=>{ink=!ink;highlight=false;stage.classList.toggle('ink-mode',ink);stage.classList.remove('highlight-mode');document.getElementById('penBtn').classList.toggle('active',ink);document.getElementById('highlightBtn').classList.remove('active')};document.getElementById('highlightBtn').onclick=()=>{highlight=!highlight;ink=false;stage.classList.toggle('highlight-mode',highlight);stage.classList.remove('ink-mode');document.getElementById('highlightBtn').classList.toggle('active',highlight);document.getElementById('penBtn').classList.remove('active')};document.getElementById('clearInkBtn').onclick=()=>{const c=pages[current]?.querySelector('.ink-layer');c?.getContext('2d').clearRect(0,0,c.width,c.height)};
-document.getElementById('bookmarkBtn').onclick=()=>{store.bookmark=current+1;localStorage.setItem(storeKey,JSON.stringify(store));document.getElementById('bookmarkStatus').textContent='Đã đánh dấu trang '+(current+1)};if(store.bookmark)document.getElementById('bookmarkStatus').textContent='Trang đã đánh dấu: '+store.bookmark;function loadNote(){document.getElementById('noteText').value=(store.notes||{})[current+1]||''}document.getElementById('noteBtn').onclick=()=>{document.getElementById('notePanel').classList.remove('d-none');loadNote()};document.getElementById('noteClose').onclick=()=>document.getElementById('notePanel').classList.add('d-none');document.getElementById('saveNote').onclick=()=>{store.notes=store.notes||{};store.notes[current+1]=document.getElementById('noteText').value;localStorage.setItem(storeKey,JSON.stringify(store));document.getElementById('notePanel').classList.add('d-none')};
+(async()=>{
+  const mode=<%-JSON.stringify(mode)%>,slug=<%-JSON.stringify(book.slug)%>,unlocked=<%-unlocked?'true':'false'%>;
+  const flipEl=document.getElementById('flipbook'),stage=document.getElementById('readerStage'),loading=document.getElementById('readerLoading'),shell=document.getElementById('readerShell');
+  let flip=null,pages=[],current=0,zoom=1,ink=false,highlight=false,penColor='#ef4444',penWidth=3,portrait=false,total=1;
+  const storeKey='reader:'+slug,store=JSON.parse(localStorage.getItem(storeKey)||'{}');
+  const $=id=>document.getElementById(id);
+
+  function updateZoom(){flipEl.style.transform=`scale(${zoom})`;$('zoomLabel').textContent=Math.round(zoom*100)+'%'}
+  function page(n){current=Math.max(0,Math.min(pages.length-1,Number(n)||0));try{flip?.flip(current)}catch(e){}$('pageInput').value=current+1;$('notePage').textContent=current+1;loadNote()}
+  function clearCanvas(c){if(!c)return;c.getContext('2d').clearRect(0,0,c.width,c.height)}
+  function inkLayer(host){
+    const c=document.createElement('canvas');c.className='ink-layer';host.appendChild(c);
+    const resize=()=>{const r=host.getBoundingClientRect();if(!r.width||!r.height)return;const old=c.width&&c.height?c.toDataURL():null,dpr=Math.max(1,devicePixelRatio||1);c.width=Math.round(r.width*dpr);c.height=Math.round(r.height*dpr);c.style.width=r.width+'px';c.style.height=r.height+'px';const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);if(old){const im=new Image();im.onload=()=>x.drawImage(im,0,0,r.width,r.height);im.src=old}};
+    if(window.ResizeObserver)new ResizeObserver(resize).observe(host);requestAnimationFrame(resize);
+    let down=false,last=null;
+    c.onpointerdown=e=>{if(!ink&&!highlight)return;c.setPointerCapture(e.pointerId);down=true;last=[e.offsetX,e.offsetY]};
+    c.onpointerup=c.onpointercancel=()=>{down=false;last=null};
+    c.onpointermove=e=>{if(!down||!last)return;const x=c.getContext('2d');x.save();x.globalCompositeOperation='source-over';x.lineCap='round';x.lineJoin='round';x.lineWidth=highlight?18:penWidth;x.strokeStyle=highlight?'rgba(250,204,21,.38)':penColor;x.beginPath();x.moveTo(last[0],last[1]);x.lineTo(e.offsetX,e.offsetY);x.stroke();x.restore();last=[e.offsetX,e.offsetY]};
+    return c;
+  }
+  function toc(entries){const el=$('tocList');el.innerHTML='';if(!entries.length){el.innerHTML='<div class="text-muted small">Chưa có mục lục cho sách này.</div>';return}entries.forEach(e=>{const b=document.createElement('button');b.className='toc-row'+(e.locked?' locked':'');b.innerHTML=(e.title||'Trang '+(e.pageIndex+1))+(e.locked?' 🔒':'');b.onclick=()=>{if(e.locked){location.href='/doc-sach-online/'+slug;return}$('tocPanel').classList.add('d-none');page(e.pageIndex)};el.appendChild(b)})}
+  function sizeForStage(){
+    const r=stage.getBoundingClientRect(),aw=Math.max(320,r.width-50),ah=Math.max(360,r.height-70),aspect=1.414;
+    portrait=portrait||aw<900;
+    let pageW,pageH;
+    if(portrait){pageH=Math.min(ah,aw*aspect);pageW=pageH/aspect;}
+    else{pageH=Math.min(ah,Math.sqrt(ah*ah+(aw/2)*(aw/2)));pageW=Math.min(aw/2-12,pageH/aspect);pageH=pageW*aspect;}
+    pageW=Math.max(280,Math.floor(pageW));pageH=Math.max(390,Math.floor(pageH));
+    return {width:pageW,height:pageH};
+  }
+  function rebuildFlip(keep=current){
+    if(!pages.length)return;
+    const {width,height}=sizeForStage();
+    flip?.destroy?.();
+    flip=new St.PageFlip(flipEl,{width,height,size:'fixed',minWidth:280,maxWidth:900,minHeight:390,maxHeight:1300,showCover:true,maxShadowOpacity:.5,usePortrait:portrait,flippingTime:480,mobileScrollSupport:true,swipeDistance:20,useMouseEvents:true,drawShadow:true});
+    flipEl.style.width=(portrait?width:width*2)+'px';flipEl.style.height=height+'px';
+    flip.loadFromHTML(pages);flip.on('flip',e=>{current=Number(e.data)||0;$('pageInput').value=current+1;$('notePage').textContent=current+1;loadNote()});
+    current=Math.max(0,Math.min(pages.length-1,keep));try{flip.flip(current)}catch(e){}updateZoom();$('readerModeLabel').textContent=portrait?'1 trang · tối ưu màn hình':'2 trang · tối ưu đọc';$('spreadBtn').textContent=portrait?'2 trang':'1 trang';
+  }
+  function makeChapterPages(){
+    const src=document.querySelectorAll('#pageSource .storypage');pages=[...src];flipEl.innerHTML='';pages.forEach(p=>{flipEl.appendChild(p);inkLayer(p)});total=pages.length;$('totalPages').textContent=total;
+    toc(<%-JSON.stringify((chapters||[]).map((c,i)=>({title:'Chương '+(i+1)+': '+c.title,pageIndex:i,locked:!c.unlocked})))%>);
+  }
+  async function loadPdf(){
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf=await pdfjsLib.getDocument('/doc-sach-online/'+slug+'/file').promise;total=pdf.numPages;$('totalPages').textContent=total;
+    const limit=unlocked?total:Math.min(3,total),manual=<%-JSON.stringify((manualToc||[]).map(e=>({title:e.title,pageNumber:e.page_number})))%>,entries=[];
+    for(let i=1;i<=limit;i++){
+      const p=await pdf.getPage(i),vp=p.getViewport({scale:1.55}),wrap=document.createElement('div');wrap.className='storypage pdfpage';
+      const c=document.createElement('canvas');c.className='pdf-canvas';c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);await p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;wrap.appendChild(c);inkLayer(wrap);flipEl.appendChild(wrap);pages.push(wrap);
+    }
+    if(!unlocked&&total>limit){const lock=document.createElement('div');lock.className='storypage';lock.innerHTML='<div class="storypage-inner text-center py-5"><i class="fa-solid fa-lock fa-2x text-muted mb-3"></i><p>Bạn đã xem hết 3 trang xem thử. Mua sách để đọc toàn bộ '+total+' trang.</p><a href="/doc-sach-online/'+slug+'" class="btn btn-primary btn-sm">Xem thông tin mua sách</a></div>';flipEl.appendChild(lock);pages.push(lock)}
+    if(manual.length)manual.forEach(e=>entries.push({title:e.title,pageIndex:Math.max(0,(e.pageNumber||1)-1),locked:!unlocked&&e.pageNumber>limit}));
+    toc(entries);
+  }
+  function loadNote(){const notes=store.notes||{};$('noteText').value=notes[current+1]||'';applyNoteTemplate(store.noteTemplate||'paper');$('noteFontSize').value=store.noteFontSize||16;$('noteText').style.fontSize=($('noteFontSize').value)+'px'}
+  function saveNote(){store.notes=store.notes||{};store.notes[current+1]=$('noteText').value;store.noteTemplate=store.noteTemplate||'paper';store.noteFontSize=Number($('noteFontSize').value||16);localStorage.setItem(storeKey,JSON.stringify(store));$('noteSaved').textContent='✓ Đã lưu '+new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})}
+  function applyNoteTemplate(t){store.noteTemplate=t;['paper','lined','grid','dot','dark'].forEach(x=>$('noteText').classList.remove('note-paper-'+x));$('noteText').classList.add('note-paper-'+t);document.querySelectorAll('[data-note-template]').forEach(b=>b.classList.toggle('active',b.dataset.noteTemplate===t))}
+  try{
+    if(mode==='chapters')makeChapterPages();else await loadPdf();
+    loading.classList.add('d-none');rebuildFlip(0);loadNote();
+  }catch(e){console.error(e);loading.innerHTML='<div class="text-danger">Không tải được sách. Hãy kiểm tra file PDF/link trong Admin.</div>';return}
+
+  $('prevBtn').onclick=()=>page(current-1);$('nextBtn').onclick=()=>page(current+1);$('pageInput').onchange=e=>page(Number(e.target.value)-1);
+  $('zoomIn').onclick=()=>{zoom=Math.min(2.5,+(zoom+.1).toFixed(2));updateZoom()};$('zoomOut').onclick=()=>{zoom=Math.max(.6,+(zoom-.1).toFixed(2));updateZoom()};
+  $('fitBtn').onclick=()=>{zoom=1;updateZoom();stage.scrollTo({top:0,left:0,behavior:'smooth'})};
+  $('spreadBtn').onclick=()=>{portrait=!portrait;rebuildFlip(current)};
+  $('focusBtn').onclick=()=>{shell.classList.toggle('reader-focus');setTimeout(()=>rebuildFlip(current),80);$('focusBtn').textContent=shell.classList.contains('reader-focus')?'↩ Công cụ':'📖 Đọc'};
+  $('fullscreenBtn').onclick=async()=>{if(!document.fullscreenElement)await shell.requestFullscreen?.();else await document.exitFullscreen?.()};
+  $('tocBtn').onclick=()=>$('tocPanel').classList.toggle('d-none');$('tocClose').onclick=()=>$('tocPanel').classList.add('d-none');
+  $('penBtn').onclick=()=>{ink=!ink;highlight=false;stage.classList.toggle('ink-mode',ink);stage.classList.remove('highlight-mode');$('penBtn').classList.toggle('active',ink);$('highlightBtn').classList.remove('active');$('penOptions').classList.toggle('d-none',!ink)};
+  $('highlightBtn').onclick=()=>{highlight=!highlight;ink=false;stage.classList.toggle('highlight-mode',highlight);stage.classList.remove('ink-mode');$('highlightBtn').classList.toggle('active',highlight);$('penBtn').classList.remove('active');$('penOptions').classList.add('d-none')};
+  $('clearInkBtn').onclick=()=>clearCanvas(pages[current]?.querySelector('.ink-layer'));
+  document.querySelectorAll('.pen-color').forEach(b=>b.onclick=()=>{penColor=b.dataset.color;document.querySelectorAll('.pen-color').forEach(x=>x.classList.remove('active'));b.classList.add('active')});$('penWidth').onchange=e=>penWidth=Number(e.target.value);
+  $('bookmarkBtn').onclick=()=>{store.bookmark=current+1;localStorage.setItem(storeKey,JSON.stringify(store));$('bookmarkStatus').textContent='Đã đánh dấu trang '+(current+1)};if(store.bookmark)$('bookmarkStatus').textContent='Trang đã đánh dấu: '+store.bookmark;
+  $('noteBtn').onclick=()=>{$('notePanel').classList.remove('d-none');loadNote()};$('noteClose').onclick=()=>$('notePanel').classList.add('d-none');$('saveNote').onclick=saveNote;$('noteText').addEventListener('input',()=>{clearTimeout(window.__noteTimer);window.__noteTimer=setTimeout(saveNote,500)});$('noteFontSize').onchange=e=>{$('noteText').style.fontSize=e.target.value+'px';saveNote()};document.querySelectorAll('[data-note-template]').forEach(b=>b.onclick=()=>{applyNoteTemplate(b.dataset.noteTemplate);saveNote()});
+  window.addEventListener('resize',()=>{clearTimeout(window.__readerResize);window.__readerResize=setTimeout(()=>rebuildFlip(current),180)});
+  document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea,select'))return;if(e.key==='ArrowLeft')page(current-1);if(e.key==='ArrowRight')page(current+1);if(e.key==='+'||e.key==='='){zoom=Math.min(2.5,+(zoom+.1).toFixed(2));updateZoom()}if(e.key==='-'){zoom=Math.max(.6,+(zoom-.1).toFixed(2));updateZoom()}});
 })();
 </script>
-<% if(mode==='chapters'){ %><div id="pageSource" class="d-none"><% chapters.forEach((c,i)=>{ %><div class="storypage"><div class="storypage-inner"><h4>Chương <%=i+1%>: <%=c.title%></h4><%if(c.unlocked){%><%-c.content%><%}else{%><div class="text-center py-5"><i class="fa-solid fa-lock fa-2x"></i><p>Chương này cần mở khóa.</p><a href="/doc-sach-online/<%=book.slug%>" class="btn btn-primary btn-sm">Mua/mở khóa</a></div><%}%></div></div><%})%></div><% } %>
+
+<% if(mode==='chapters'){ %>
+<div id="pageSource" class="d-none"><% chapters.forEach((c,i)=>{ %><div class="storypage"><div class="storypage-inner"><h4>Chương <%=i+1%>: <%=c.title%></h4><%if(c.unlocked){%><%-c.content%><%}else{%><div class="text-center py-5"><i class="fa-solid fa-lock fa-2x"></i><p>Chương này cần mở khóa.</p><a href="/doc-sach-online/<%=book.slug%>" class="btn btn-primary btn-sm">Mua/mở khóa</a></div><%}%></div></div><%})%></div>
+<% } %>
+
 <%- include('partials/footer') %>
