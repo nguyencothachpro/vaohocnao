@@ -17,7 +17,8 @@
 @keyframes c3LaserPing{0%{opacity:1;transform:scale(.6)}15%{opacity:1;transform:scale(1.15)}30%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:scale(1)}}
 .c3-sync-btn{margin-left:8px;background:#fff;color:#2563eb;border-color:#bfdbfe}
 .c3-sync-btn.active{background:#2563eb;color:#fff;border-color:#2563eb}
-.c3-sync-overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff;z-index:35;display:none}
-.c3-sync-banner{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(37,99,235,.95);color:#fff;padding:6px 8px 6px 16px;border-radius:999px;font-size:12px;font-weight:700;z-index:36;display:none;align-items:center;gap:10px;box-shadow:0 6px 18px rgba(37,99,235,.35)}
-.c3-sync-banner button{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;cursor:pointer}
+.c3-book-wrap{position:relative}
+.c3-sync-overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff;z-index:6;display:none;pointer-events:none}
+.c3-sync-banner{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(37,99,235,.95);color:#fff;padding:5px 6px 5px 14px;border-radius:999px;font-size:11px;font-weight:700;z-index:36;display:none;align-items:center;gap:8px;box-shadow:0 6px 18px rgba(37,99,235,.35)}
+.c3-sync-banner button{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:999px;padding:3px 9px;font-size:10px;cursor:pointer;white-space:nowrap}
 .c3-sync-banner button:hover{background:rgba(255,255,255,.3)}

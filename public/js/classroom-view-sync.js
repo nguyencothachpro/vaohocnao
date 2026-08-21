@@ -30,7 +30,7 @@ function cropCanvas(){
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
   pageEls.forEach(p=>{const r=p.getBoundingClientRect();minX=Math.min(minX,Math.max(r.left,viewRect.left));minY=Math.min(minY,Math.max(r.top,viewRect.top));maxX=Math.max(maxX,Math.min(r.right,viewRect.right));maxY=Math.max(maxY,Math.min(r.bottom,viewRect.bottom))});
   const cropW=Math.max(1,maxX-minX),cropH=Math.max(1,maxY-minY);
-  const targetW=1400,targetH=Math.max(300,Math.round(targetW*cropH/cropW));
+  const targetW=Math.min(2200,Math.max(1200,Math.round(cropW))),targetH=Math.max(300,Math.round(targetW*cropH/cropW));
   const c=document.createElement('canvas');c.width=targetW;c.height=targetH;
   const ctx=c.getContext('2d');
   ctx.fillStyle='#fff';ctx.fillRect(0,0,targetW,targetH);
@@ -54,7 +54,7 @@ function captureAndSend(){
   const c=cropCanvas();
   if(!c)return;
   try{
-    const dataUrl=c.toDataURL('image/jpeg',0.78);
+    const dataUrl=c.toDataURL('image/jpeg',0.9);
     socket?.emit('classroom:view-snapshot',{room:C.room,image:dataUrl,page:Number($('c3PageInput')?.value||1)-1});
   }catch(err){console.error(err)}
 }
@@ -66,16 +66,16 @@ function scheduleSnapshot(immediate){
 
 function ensureOverlay(){
   let img=$('c3SyncOverlay');
-  if(!img){img=document.createElement('img');img.id='c3SyncOverlay';img.className='c3-sync-overlay';$('c3View')?.appendChild(img)}
+  if(!img){img=document.createElement('img');img.id='c3SyncOverlay';img.className='c3-sync-overlay';$('c3BookWrap')?.appendChild(img)}
   let banner=$('c3SyncBanner');
   if(!banner){
     banner=document.createElement('div');banner.id='c3SyncBanner';banner.className='c3-sync-banner';
-    banner.innerHTML='<span>🔗 Đang xem theo khung giáo viên</span><button id="c3SyncExplore" type="button">Xem tự do</button>';
+    banner.innerHTML='<span>🔗 Theo giáo viên</span><button id="c3SyncExplore" type="button">Xem tự do</button>';
     $('c3View')?.appendChild(banner);
     banner.querySelector('#c3SyncExplore').onclick=()=>{
       exploring=!exploring;
       img.style.display=exploring?'none':'block';
-      banner.querySelector('#c3SyncExplore').textContent=exploring?'↩ Quay lại theo giáo viên':'Xem tự do';
+      banner.querySelector('#c3SyncExplore').textContent=exploring?'↩ Theo giáo viên':'Xem tự do';
     };
   }
   return {img,banner};
@@ -89,10 +89,12 @@ function install(){
     const bookWrap=$('c3BookWrap');
     if(bookWrap&&window.MutationObserver)new MutationObserver(()=>scheduleSnapshot(false)).observe(bookWrap,{attributes:true,attributeFilter:['style']});
     window.addEventListener('resize',()=>scheduleSnapshot(false));
-    document.addEventListener('pointerup',()=>scheduleSnapshot(false));
+    document.addEventListener('pointerup',()=>scheduleSnapshot(false),true);
+    document.addEventListener('pointermove',()=>scheduleSnapshot(false),true);
     ['c3Prev','c3Next'].forEach(id=>$(id)?.addEventListener('click',()=>setTimeout(()=>scheduleSnapshot(true),700)));
     $('c3PageInput')?.addEventListener('change',()=>setTimeout(()=>scheduleSnapshot(true),700));
     document.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight')setTimeout(()=>scheduleSnapshot(true),700)});
+    setInterval(()=>{if(syncOn)scheduleSnapshot(false)},2500);
   }else{
     socket?.on('classroom:view-sync-toggle',p=>{syncOn=!!p?.on;if(syncOn)showOverlay();else hideOverlay()});
     socket?.on('classroom:view-snapshot',p=>{if(!p?.image)return;ensureOverlay().img.src=p.image;if(syncOn)showOverlay()});
