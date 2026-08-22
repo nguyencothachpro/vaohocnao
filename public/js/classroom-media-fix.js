@@ -27,8 +27,7 @@ if(navigator.mediaDevices?.getUserMedia&&!navigator.mediaDevices.getUserMedia.__
     }
     return original(c);
   };
-  wrapped.__c3MediaWrapped=true;
-  navigator.mediaDevices.getUserMedia=wrapped;
+  wrapped.__c3MediaWrapped=true;navigator.mediaDevices.getUserMedia=wrapped;
 }
 if(window.RTCPeerConnection&&!window.RTCPeerConnection.__c3MediaWrapped){
   const Native=window.RTCPeerConnection;
@@ -37,9 +36,23 @@ if(window.RTCPeerConnection&&!window.RTCPeerConnection.__c3MediaWrapped){
       const extra=Array.isArray(window.C3_ICE_SERVERS)?window.C3_ICE_SERVERS:[];
       const base=Array.isArray(config.iceServers)?config.iceServers:[];
       super({...config,iceServers:[...base,...extra]});
+      this.__c3IceQueue=[];
+      this.addEventListener('connectionstatechange',()=>{if(this.connectionState==='failed')toast('Kết nối âm thanh/video thất bại — mạng có thể cần TURN relay')});
     }
   }
   PatchedRTCPeerConnection.__c3MediaWrapped=true;
+  const nativeAdd=Native.prototype.addIceCandidate;
+  const nativeSetRemote=Native.prototype.setRemoteDescription;
+  PatchedRTCPeerConnection.prototype.addIceCandidate=async function(candidate){
+    if(!this.remoteDescription){this.__c3IceQueue.push(candidate);return;}
+    return nativeAdd.call(this,candidate);
+  };
+  PatchedRTCPeerConnection.prototype.setRemoteDescription=async function(desc){
+    const result=await nativeSetRemote.call(this,desc);
+    const queue=this.__c3IceQueue.splice(0);
+    for(const candidate of queue){try{await nativeAdd.call(this,candidate)}catch(err){console.warn('queued ICE candidate',err)}}
+    return result;
+  };
   window.RTCPeerConnection=PatchedRTCPeerConnection;
 }
 function mediaEls(){return [...document.querySelectorAll('audio,video')].filter(e=>e.id!=='c3CameraPreview');}
