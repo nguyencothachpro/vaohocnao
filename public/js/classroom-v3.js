@@ -42,6 +42,7 @@ function setupPan(){
   let pinching=false,pinchStartDist=0,pinchStartZoom=1;
   const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   view.addEventListener('pointerdown',e=>{
+    if(e.target.closest('#c3CameraPip,#c3CameraRestore,.c3-sync-banner,#c3StopSpeakBtn'))return;
     pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(pointers.size===2){
       pinching=true;panning=false;panStart=null;
