@@ -60,6 +60,8 @@ body.c3-student .c3-book-wrap{width:99%;height:92%}
 .c3-chroma-btn.active{background:#16a34a;color:#fff;border-color:#16a34a}
 .c3-camera-btn{margin-left:8px;background:#fff;color:#0891b2;border-color:#a5f3fc}
 .c3-camera-btn.active{background:#0891b2;color:#fff;border-color:#0891b2}
+.c3-mic-btn{margin-left:8px;background:#fff;color:#7c3aed;border-color:#ddd6fe}
+.c3-mic-btn.muted{background:#dc2626;color:#fff;border-color:#dc2626}
 .c3-record-btn{margin-left:8px;background:#fff;color:#dc2626;border-color:#fecaca}
 .c3-record-btn.active{background:#dc2626;color:#fff;border-color:#dc2626;animation:c3RecordPulse 1.6s ease-in-out infinite}
 @keyframes c3RecordPulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.45)}50%{box-shadow:0 0 0 6px rgba(220,38,38,0)}}
@@ -70,3 +72,4 @@ body.c3-student .c3-book-wrap{width:99%;height:92%}
 .c3-speaker-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(15,23,42,.9);color:#fff;border-radius:10px;padding:7px 8px 7px 12px;font-size:12px;box-shadow:0 8px 22px rgba(15,23,42,.3)}
 .c3-speaker-row button{background:#dc2626;color:#fff;border:0;border-radius:7px;padding:5px 8px;font-size:11px;cursor:pointer;white-space:nowrap}
 .c3-speaker-row button:hover{background:#b91c1c}
+.c3-camera-unmute{position:absolute;inset:0;width:100%;height:100%;border:0;background:rgba(15,23,42,.72);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;text-align:center;padding:8px;cursor:pointer;z-index:3;animation:c3SpeakPulse 1.4s ease-in-out infinite}

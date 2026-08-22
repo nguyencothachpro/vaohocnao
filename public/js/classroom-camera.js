@@ -2,7 +2,7 @@
 const C=window.CLASSROOM||{},$=id=>document.getElementById(id);
 const socket=window._c3Socket||(window.io?window.io():null);
 const RTC_CONFIG={iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
-let rawStream=null,camOn=false,studentPc=null,chromaOn=false,chromaCanvas=null,chromaCtx=null,chromaStream=null,chromaTimer=0;
+let rawStream=null,camOn=false,studentPc=null,chromaOn=false,chromaCanvas=null,chromaCtx=null,chromaStream=null,chromaTimer=0,micMuted=false;
 const peers=new Map();
 
 function toast(m){const e=$('c3Toast');if(!e)return;e.textContent=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),1800)}
@@ -73,10 +73,20 @@ let soundUnlocked=false;
 function unlockSoundOnce(){
   if(soundUnlocked)return;soundUnlocked=true;
   document.querySelectorAll('#c3CameraPip video').forEach(v=>{v.muted=false;v.play?.().catch(()=>{})});
+  document.querySelector('.c3-camera-unmute')?.remove();
 }
 document.addEventListener('pointerdown',unlockSoundOnce,{once:true,capture:true});
 document.addEventListener('keydown',unlockSoundOnce,{once:true,capture:true});
-function showRemoteCamera(stream){const pip=ensurePip();const v=pip.querySelector('video');v.muted=!soundUnlocked;v.srcObject=stream;pip.style.display=pipHiddenByStudent?'none':'block';v.play?.().catch(()=>{v.muted=true;v.play?.().catch(()=>{})});injectHideToggle(pip);injectRestoreBtn()}
+function showRemoteCamera(stream){const pip=ensurePip();const v=pip.querySelector('video');v.muted=!soundUnlocked;v.srcObject=stream;pip.style.display=pipHiddenByStudent?'none':'block';v.play?.().catch(()=>{v.muted=true;v.play?.().catch(()=>{})});injectHideToggle(pip);injectRestoreBtn();injectUnmuteButton(pip,v)}
+function injectUnmuteButton(pip,v){
+  const existing=pip.querySelector('.c3-camera-unmute');
+  if(!v.muted){existing?.remove();return}
+  if(existing)return;
+  const b=document.createElement('button');
+  b.className='c3-camera-unmute';b.innerHTML='🔊 Bấm để nghe tiếng';
+  b.onclick=e=>{e.preventDefault();e.stopPropagation();soundUnlocked=true;v.muted=false;v.play?.().catch(()=>{});b.remove()};
+  pip.appendChild(b);
+}
 function hidePip(){const pip=document.getElementById('c3CameraPip');if(pip){pip.style.display='none';const v=pip.querySelector('video');if(v)v.srcObject=null}removeRestoreBtn();pipHiddenByStudent=false}
 let pipHiddenByStudent=false;
 function injectHideToggle(pip){
@@ -197,15 +207,32 @@ function injectTeacherButton(){
     try{
       rawStream=await navigator.mediaDevices.getUserMedia({video:{width:320,height:240},audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1,sampleRate:48000,sampleSize:16}});
     }catch(err){toast('Không mở được camera — kiểm tra quyền truy cập trình duyệt');return}
-    camOn=true;
+    camOn=true;micMuted=false;
     b.innerHTML='⏹ Tắt camera';b.classList.add('active');
     showLocalCamera(rawStream);
     injectChromaButton();
+    injectMicButton();
     socket?.emit('classroom:camera-on');
     toast('Đã bật camera cho cả lớp — kéo góc khung để đổi cỡ, kéo icon để di chuyển');
   };
   bar.appendChild(b);
 }
+function injectMicButton(){
+  const bar=document.querySelector('.c3-stagebar');
+  if(!bar||$('c3MicBtn'))return;
+  const b=document.createElement('button');
+  b.id='c3MicBtn';b.className='c3-btn c3-mic-btn';b.innerHTML='🎤 Mic';
+  b.onclick=()=>{
+    if(!rawStream)return;
+    micMuted=!micMuted;
+    rawStream.getAudioTracks().forEach(t=>t.enabled=!micMuted);
+    b.innerHTML=micMuted?'🔇 Đã tắt mic':'🎤 Mic';
+    b.classList.toggle('muted',micMuted);
+    toast(micMuted?'Đã tắt mic — học viên không nghe thấy bạn':'Đã bật mic trở lại');
+  };
+  bar.appendChild(b);
+}
+function removeMicButton(){const b=$('c3MicBtn');if(b)b.remove()}
 function injectChromaButton(){
   const bar=document.querySelector('.c3-stagebar');
   if(!bar||$('c3ChromaBtn'))return;
@@ -216,9 +243,10 @@ function injectChromaButton(){
 }
 function removeChromaButton(){const b=$('c3ChromaBtn');if(b)b.remove()}
 function stopCamera(){
-  camOn=false;
+  camOn=false;micMuted=false;
   if(chromaOn)stopChroma();
   removeChromaButton();
+  removeMicButton();
   const b=$('c3CameraBtn');if(b){b.innerHTML='📷 Camera';b.classList.remove('active')}
   rawStream?.getTracks().forEach(t=>t.stop());rawStream=null;
   for(const [,pc] of peers){try{pc.close()}catch(_){}}
