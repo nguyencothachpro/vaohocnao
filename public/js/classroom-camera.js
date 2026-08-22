@@ -23,18 +23,18 @@ function pxToLocal(pip,e){
   return{x:e.clientX-(view?.left||0),y:e.clientY-(view?.top||0)};
 }
 function makeDraggable(pip){
-  const handle=pip.querySelector('.c3-camera-drag');
   let dragging=false,startX=0,startY=0,startLeft=0,startTop=0;
-  handle.addEventListener('pointerdown',e=>{
+  pip.addEventListener('pointerdown',e=>{
+    if(e.target.closest('.c3-camera-resize')||e.target.closest('.c3-camera-hide'))return;
     dragging=true;
     const r=pip.getBoundingClientRect(),view=document.getElementById('c3View')?.getBoundingClientRect();
     startX=e.clientX;startY=e.clientY;
     startLeft=r.left-(view?.left||0);startTop=r.top-(view?.top||0);
     pip.style.right='auto';pip.style.left=startLeft+'px';pip.style.top=startTop+'px';
-    handle.setPointerCapture?.(e.pointerId);
+    pip.setPointerCapture?.(e.pointerId);
     e.preventDefault();e.stopPropagation();
   });
-  handle.addEventListener('pointermove',e=>{
+  pip.addEventListener('pointermove',e=>{
     if(!dragging)return;
     const view=document.getElementById('c3View');
     const vw=view?.clientWidth||9999,vh=view?.clientHeight||9999;
@@ -44,9 +44,9 @@ function makeDraggable(pip){
     pip.style.left=nl+'px';pip.style.top=nt+'px';
     e.preventDefault();e.stopPropagation();
   });
-  const end=e=>{dragging=false;try{handle.releasePointerCapture?.(e.pointerId)}catch(_){}};
-  handle.addEventListener('pointerup',end);
-  handle.addEventListener('pointercancel',end);
+  const end=e=>{dragging=false;try{pip.releasePointerCapture?.(e.pointerId)}catch(_){}};
+  pip.addEventListener('pointerup',end);
+  pip.addEventListener('pointercancel',end);
 }
 function makeResizable(pip){
   const handle=pip.querySelector('.c3-camera-resize');
@@ -90,13 +90,39 @@ function injectHideToggle(pip){
   };
   pip.appendChild(b);
 }
+function makeDraggableClick(el,onClick){
+  let dragging=false,moved=false,startX=0,startY=0,startLeft=0,startTop=0;
+  el.addEventListener('pointerdown',e=>{
+    dragging=true;moved=false;
+    const r=el.getBoundingClientRect(),view=document.getElementById('c3View')?.getBoundingClientRect();
+    startX=e.clientX;startY=e.clientY;
+    startLeft=r.left-(view?.left||0);startTop=r.top-(view?.top||0);
+    el.style.right='auto';el.style.left=startLeft+'px';el.style.top=startTop+'px';
+    el.setPointerCapture?.(e.pointerId);
+  });
+  el.addEventListener('pointermove',e=>{
+    if(!dragging)return;
+    const dx=e.clientX-startX,dy=e.clientY-startY;
+    if(Math.hypot(dx,dy)>6)moved=true;
+    const view=document.getElementById('c3View');
+    const vw=view?.clientWidth||9999,vh=view?.clientHeight||9999;
+    const r=el.getBoundingClientRect();
+    let nl=startLeft+dx,nt=startTop+dy;
+    nl=Math.max(0,Math.min(vw-r.width,nl));nt=Math.max(0,Math.min(vh-r.height,nt));
+    el.style.left=nl+'px';el.style.top=nt+'px';
+    e.preventDefault();
+  });
+  const end=e=>{if(dragging&&!moved&&onClick)onClick();dragging=false;try{el.releasePointerCapture?.(e.pointerId)}catch(_){}};
+  el.addEventListener('pointerup',end);
+  el.addEventListener('pointercancel',()=>{dragging=false});
+}
 function injectRestoreBtn(){
   if(C.isTeacher||!pipHiddenByStudent)return;
   let r=$('c3CameraRestore');
   if(!r){
     r=document.createElement('button');r.id='c3CameraRestore';r.className='c3-camera-restore';r.innerHTML='📷 Hiện camera giáo viên';
-    r.onclick=()=>{pipHiddenByStudent=false;const pip=$('c3CameraPip');if(pip)pip.style.display='block';removeRestoreBtn()};
     document.getElementById('c3View')?.appendChild(r);
+    makeDraggableClick(r,()=>{pipHiddenByStudent=false;const pip=$('c3CameraPip');if(pip)pip.style.display='block';removeRestoreBtn()});
   }
   r.style.display='flex';
 }
