@@ -1,37 +1,37 @@
 (()=>{
 'use strict';
-/* OBS-style voice processing using Web Audio. Keeps speech clear, even and gentle. */
-const P={sampleRate:48000,highpassHz:70,lowpassHz:11000,compressor:{threshold:-24,knee:18,ratio:3,attack:0.006,release:0.12},limiter:{threshold:-2,knee:0,ratio:20,attack:0.001,release:0.08},gainDb:2};
+/* Natural OBS-style classroom voice processing + keep-alive for long pauses. */
+const P={sampleRate:48000,highpassHz:75,lowpassHz:11500,gainDb:1.2,compressor:{threshold:-22,knee:20,ratio:2.5,attack:0.008,release:0.18},limiter:{threshold:-1.5,knee:0,ratio:12,attack:0.002,release:0.1}};
 window.C3_VOICE_PROCESSOR=P;
-const originalGetUserMedia=navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices);
-if(!originalGetUserMedia||navigator.mediaDevices.getUserMedia.__c3VoiceWrapped)return;
-let active=[];
-function db(v){return Math.pow(10,v/20)}
+const gum=navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices);
+if(!gum||navigator.mediaDevices.getUserMedia.__c3VoiceWrapped)return;
+const active=[];
+const db=v=>Math.pow(10,v/20);
+function setParam(node,key,val){try{node[key].value=val}catch(_){} }
 function build(raw){
-  const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
-  const ctx=new AC({sampleRate:P.sampleRate});
-  const src=ctx.createMediaStreamSource(raw);
-  const hp=ctx.createBiquadFilter();hp.type='highpass';hp.frequency.value=P.highpassHz;hp.Q.value=.707;
-  const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=P.lowpassHz;lp.Q.value=.707;
-  const comp=ctx.createDynamicsCompressor();Object.assign(comp,{threshold:{value:P.compressor.threshold},knee:{value:P.compressor.knee},ratio:{value:P.compressor.ratio},attack:{value:P.compressor.attack},release:{value:P.compressor.release}});
-  const makeup=ctx.createGain();makeup.gain.value=db(P.gainDb);
-  const lim=ctx.createDynamicsCompressor();Object.assign(lim,{threshold:{value:P.limiter.threshold},knee:{value:P.limiter.knee},ratio:{value:P.limiter.ratio},attack:{value:P.limiter.attack},release:{value:P.limiter.release}});
-  const dest=ctx.createMediaStreamDestination();
-  src.connect(hp).connect(lp).connect(comp).connect(makeup).connect(lim).connect(dest);
-  const out=new MediaStream([...dest.stream.getAudioTracks()]);
-  const stop=()=>{try{raw.getAudioTracks().forEach(t=>t.stop())}catch(_){};try{ctx.close()}catch(_){};active=active.filter(x=>x!==stop)};
-  active.push(stop);
-  return {stream:out,stop,context:ctx};
+ const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
+ const ctx=new AC({sampleRate:P.sampleRate});
+ const src=ctx.createMediaStreamSource(raw);
+ const hp=ctx.createBiquadFilter();hp.type='highpass';setParam(hp,'frequency',P.highpassHz);setParam(hp,'Q',.707);
+ const presence=ctx.createBiquadFilter();presence.type='peaking';setParam(presence,'frequency',2500);setParam(presence,'Q',.9);setParam(presence,'gain',1.5);
+ const lp=ctx.createBiquadFilter();lp.type='lowpass';setParam(lp,'frequency',P.lowpassHz);setParam(lp,'Q',.707);
+ const comp=ctx.createDynamicsCompressor();Object.entries(P.compressor).forEach(([k,v])=>setParam(comp,k,v));
+ const gain=ctx.createGain();gain.gain.value=db(P.gainDb);
+ const lim=ctx.createDynamicsCompressor();Object.entries(P.limiter).forEach(([k,v])=>setParam(lim,k,v));
+ const dest=ctx.createMediaStreamDestination();src.connect(hp).connect(presence).connect(lp).connect(comp).connect(gain).connect(lim).connect(dest);
+ const outTrack=dest.stream.getAudioTracks()[0];
+ let alive=true;const keep=()=>{if(!alive)return;if(ctx.state==='suspended')ctx.resume().catch(()=>{});setTimeout(keep,3000)};keep();
+ const stop=()=>{alive=false;try{raw.getAudioTracks().forEach(t=>t.stop())}catch(_){}try{ctx.close()}catch(_){} };
+ active.push(stop);return {stream:new MediaStream([outTrack,...raw.getVideoTracks()]),stop,context:ctx};
 }
 navigator.mediaDevices.getUserMedia=async constraints=>{
-  const c=constraints&&typeof constraints==='object'?structuredClone(constraints):constraints;
-  if(!c?.audio||window.C3_DISABLE_VOICE_PROCESSOR)return originalGetUserMedia(c);
-  const raw=await originalGetUserMedia({...c,audio:{...(typeof c.audio==='object'?c.audio:{}),echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1,sampleRate:P.sampleRate,sampleSize:16}});
-  try{
-    const processed=build(raw);if(processed){processed.stream.getAudioTracks()[0].__c3Processed=true;return new MediaStream([...processed.stream.getAudioTracks(),...raw.getVideoTracks()])}
-  }catch(err){console.warn('C3 voice processor fallback',err)}
-  return raw;
+ const c=constraints&&typeof constraints==='object'?structuredClone(constraints):constraints;
+ if(!c?.audio||window.C3_DISABLE_VOICE_PROCESSOR)return gum(c);
+ const audio={...(typeof c.audio==='object'?c.audio:{}),echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1,sampleRate:P.sampleRate,sampleSize:16};
+ const raw=await gum({...c,audio});
+ try{const p=build(raw);if(p){p.stream.getAudioTracks()[0].__c3Processed=true;return p.stream}}catch(e){console.warn('C3 voice processor fallback',e)}
+ return raw;
 };
 navigator.mediaDevices.getUserMedia.__c3VoiceWrapped=true;
-window.C3_VOICE_PROCESSOR_STOP=()=>{active.splice(0).forEach(fn=>fn())};
+window.C3_VOICE_PROCESSOR_STOP=()=>active.splice(0).forEach(fn=>fn());
 })();
