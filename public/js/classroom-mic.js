@@ -2,10 +2,11 @@
 const C=window.CLASSROOM||{},$=id=>document.getElementById(id);
 const socket=window._c3Socket||(window.io?window.io():null);
 const RTC_CONFIG={iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
-let micStream=null,micOn=false,raiseCooldown=false;
+let micStream=null,micOn=false,amISpeaking=false,raiseCooldown=false;
 const outgoingPeers=new Map();
 const incomingPeers=new Map();
 const audioEls=new Map();
+const speakers=new Map();
 
 function toast(m){const e=$('c3Toast');if(!e)return;e.textContent=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),1800)}
 
@@ -46,11 +47,17 @@ function injectRaiseHandButton(){
 }
 
 async function startSpeaking(peerIds){
-  try{micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}
-  catch(err){toast('Không mở được micro — kiểm tra quyền truy cập trình duyệt');return}
-  micOn=true;
+  amISpeaking=true;
   showSpeaking('Bạn đang nói — cả lớp nghe được');
   ensureStopButton();
+  try{micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}
+  catch(err){
+    toast('Không mở được micro — kiểm tra quyền truy cập trình duyệt');
+    amISpeaking=false;hideSpeaking();hideStopButton();
+    socket?.emit('classroom:mic-stop');
+    return;
+  }
+  micOn=true;
   for(const id of peerIds||[])connectOut(id);
 }
 async function connectOut(peerId){
@@ -67,7 +74,7 @@ async function connectOut(peerId){
   }catch(err){console.error(err)}
 }
 function stopSpeaking(silent){
-  micOn=false;
+  micOn=false;amISpeaking=false;
   micStream?.getTracks().forEach(t=>t.stop());micStream=null;
   for(const [,pc] of outgoingPeers){try{pc.close()}catch(_){}}
   outgoingPeers.clear();
@@ -117,6 +124,29 @@ function addMicRequest(r){
   toast('🎤 '+(r.user||'Học viên')+' đang giơ tay xin nói');
 }
 
+function ensureSpeakerPanel(){
+  let box=$('c3SpeakerPanel');
+  if(!box){
+    box=document.createElement('div');box.id='c3SpeakerPanel';box.className='c3-speaker-panel';
+    document.getElementById('c3View')?.appendChild(box);
+  }
+  return box;
+}
+function renderSpeakerPanel(){
+  const box=$('c3SpeakerPanel');
+  if(!box)return;
+  if(!speakers.size){box.style.display='none';box.innerHTML='';return}
+  box.style.display='flex';
+  box.innerHTML='';
+  speakers.forEach((user,userId)=>{
+    const row=document.createElement('div');row.className='c3-speaker-row';
+    const label=document.createElement('span');label.textContent='🎤 '+user;
+    const mute=document.createElement('button');mute.textContent='🔇 Tắt mic';
+    mute.onclick=()=>{socket?.emit('classroom:mic-force-stop',{userId})};
+    row.append(label,mute);box.appendChild(row);
+  });
+}
+
 function install(){
   injectRaiseHandButton();
   socket?.on('classroom:raise-hand',addMicRequest);
@@ -125,7 +155,12 @@ function install(){
     else{toast('Giáo viên đã từ chối/thu hồi quyền nói');stopSpeaking(true)}
   });
   socket?.on('classroom:mic-speaking',p=>{
-    if(!p||micOn)return;
+    if(!p)return;
+    if(C.isTeacher){
+      if(p.speaking)speakers.set(p.userId,p.user||'Học viên');else speakers.delete(p.userId);
+      ensureSpeakerPanel();renderSpeakerPanel();
+    }
+    if(amISpeaking)return;
     if(p.speaking)showSpeaking((p.user||'Một học viên')+' đang nói');else hideSpeaking();
   });
   socket?.on('webrtc:offer',handleIncomingOffer);
@@ -143,3 +178,4 @@ function install(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(install,900));else setTimeout(install,900);
 })();
+

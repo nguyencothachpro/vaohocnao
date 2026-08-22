@@ -66,3 +66,7 @@ body.c3-student .c3-book-wrap{width:99%;height:92%}
 .c3-speaking-badge{position:absolute;bottom:44px;left:50%;transform:translateX(-50%);background:rgba(22,163,74,.95);color:#fff;padding:6px 16px;border-radius:999px;font-size:12px;font-weight:800;z-index:46;display:none;align-items:center;gap:6px;box-shadow:0 6px 18px rgba(22,163,74,.35);animation:c3SpeakPulse 1.4s ease-in-out infinite}
 @keyframes c3SpeakPulse{0%,100%{opacity:1}50%{opacity:.75}}
 .c3-stop-speak-btn{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:46;background:#dc2626;color:#fff;border:0;border-radius:999px;padding:8px 18px;font-size:12px;font-weight:700;display:none;cursor:pointer;box-shadow:0 6px 18px rgba(220,38,38,.35)}
+.c3-speaker-panel{position:absolute;left:14px;bottom:14px;z-index:47;display:none;flex-direction:column;gap:6px;max-width:260px}
+.c3-speaker-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(15,23,42,.9);color:#fff;border-radius:10px;padding:7px 8px 7px 12px;font-size:12px;box-shadow:0 8px 22px rgba(15,23,42,.3)}
+.c3-speaker-row button{background:#dc2626;color:#fff;border:0;border-radius:7px;padding:5px 8px;font-size:11px;cursor:pointer;white-space:nowrap}
+.c3-speaker-row button:hover{background:#b91c1c}
