@@ -26,11 +26,23 @@
     height:100% !important;
     overflow:hidden !important;
   }
+
+  /* Student classroom: no reserved left tool column. */
+  body.c3-student .classroom-v3 .c3-body,
+  body.c3-student .c3-body{
+    grid-template-columns:0 minmax(0,1fr) !important;
+  }
 }
 
 @media (max-width:650px){
   .classroom-v3 .c3-body{
     grid-template-columns:56px minmax(0,1fr) !important;
     grid-template-rows:minmax(0,1fr) !important;
+  }
+
+  /* Student mobile: viewer uses the full available width. */
+  body.c3-student .classroom-v3 .c3-body,
+  body.c3-student .c3-body{
+    grid-template-columns:0 minmax(0,1fr) !important;
   }
 }
