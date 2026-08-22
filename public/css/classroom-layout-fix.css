@@ -1,0 +1,36 @@
+/* Final mobile/tablet layout fix for Classroom V3. */
+.classroom-v3 .c3-body{
+  min-height:0 !important;
+  grid-template-rows:minmax(0,1fr) !important;
+}
+
+@media (max-width:1100px){
+  .classroom-v3{
+    height:100dvh !important;
+    min-height:0 !important;
+  }
+  .classroom-v3 .c3-body{
+    height:auto !important;
+    min-height:0 !important;
+    grid-template-columns:62px minmax(0,1fr) !important;
+    grid-template-rows:minmax(0,1fr) !important;
+    overflow:hidden !important;
+  }
+  .classroom-v3 .c3-stage{
+    min-height:0 !important;
+    height:100% !important;
+    overflow:hidden !important;
+  }
+  .classroom-v3 .c3-view{
+    min-height:0 !important;
+    height:100% !important;
+    overflow:hidden !important;
+  }
+}
+
+@media (max-width:650px){
+  .classroom-v3 .c3-body{
+    grid-template-columns:56px minmax(0,1fr) !important;
+    grid-template-rows:minmax(0,1fr) !important;
+  }
+}
