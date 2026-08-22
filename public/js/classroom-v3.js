@@ -20,17 +20,26 @@ function attachInk(host,index){const c=document.createElement('canvas');c.classN
 function makeBlank(template,index){const host=document.createElement('div');host.className='c3-book-page';host.dataset.page=index;host.dataset.blank='1';const bg=document.createElement('div');bg.className='blank-bg blank-'+template;host.appendChild(bg);attachInk(host,index);return host}
 function makePdfPage(i){const host=document.createElement('div');host.className='c3-book-page';host.dataset.page=i;host.dataset.rendered='0';const c=document.createElement('canvas');c.className='pdf-page';host.appendChild(c);attachInk(host,i);return host}
 let pdfScale=1;
-async function renderPageIfNeeded(index){
-  if(!pdf||index<0||index>=pages.length)return;
-  const host=pages[index];if(!host||host.dataset.rendered==='1')return;
-  const canvas=host.querySelector('canvas.pdf-page');if(!canvas)return;
-  try{
-    const p=await pdf.getPage(index+1),vp=p.getViewport({scale:pdfScale});
-    canvas.width=Math.ceil(vp.width);canvas.height=Math.ceil(vp.height);
-    await p.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
-    host.dataset.rendered='1';
-    if(index===current){computeBookSize();applyZoom();redrawAllInk()}
-  }catch(err){console.error(err)}
+const renderingPromises={};
+function renderPageIfNeeded(index){
+  if(!pdf||index<0||index>=pages.length)return Promise.resolve();
+  const host=pages[index];
+  if(!host||host.dataset.rendered==='1')return Promise.resolve();
+  if(renderingPromises[index])return renderingPromises[index];
+  const canvas=host.querySelector('canvas.pdf-page');
+  if(!canvas)return Promise.resolve();
+  const job=(async()=>{
+    try{
+      const page=await pdf.getPage(index+1),vp=page.getViewport({scale:pdfScale});
+      canvas.width=Math.ceil(vp.width);canvas.height=Math.ceil(vp.height);
+      await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
+      host.dataset.rendered='1';
+      if(index===current){computeBookSize();applyZoom();redrawAllInk()}
+    }catch(err){console.error('renderPageIfNeeded',index,err)}
+    finally{delete renderingPromises[index]}
+  })();
+  renderingPromises[index]=job;
+  return job;
 }
 async function renderPdf(url){$('c3Empty')?.classList.add('hidden');$('c3Loading')?.classList.remove('hidden');pages=[];window._c3Ink={};$('c3Book').innerHTML='';try{const bytes=await fetch(url,{credentials:'same-origin'}).then(r=>{if(!r.ok)throw new Error('Không tải được tài liệu');return r.arrayBuffer()});pdf=await pdfjsLib.getDocument({data:bytes}).promise;total=pdf.numPages;const first=await pdf.getPage(1),base=first.getViewport({scale:1}),dpr=Math.min(1.5,devicePixelRatio||1),targetW=1900*dpr;pdfScale=Math.min(3.2,targetW/base.width);for(let i=1;i<=total;i++)pages.push(makePdfPage(i-1));mountPages(0);await renderPageIfNeeded(0);renderPageIfNeeded(1);$('c3Empty')?.classList.add('hidden')}catch(e){console.error(e);toast(e.message||'Không tải được PDF');$('c3Empty')?.classList.remove('hidden')}finally{$('c3Loading')?.classList.add('hidden')}}
 function computeBookSize(){const view=$('c3View');if(!view||!pages.length)return;const rect=view.getBoundingClientRect();const canvas=pages[0].querySelector('canvas.pdf-page');let baseW,baseH;if(canvas){baseW=canvas.width;baseH=canvas.height}else{[baseW,baseH]=pageBaseSize()}let pageH=Math.max(420,rect.height-36),pageW=Math.max(300,rect.width-36);if(baseW/baseH>pageW/pageH)pageH=Math.floor(pageW*baseH/baseW);else pageW=Math.floor(pageH*baseW/baseH);pageW=Math.max(280,Math.min(1300,pageW));pageH=Math.max(380,Math.min(1600,pageH));pages.forEach(p=>{p.style.width=pageW+'px';p.style.height=pageH+'px'});window._c3BookSize={w:pageW,h:pageH}}
