@@ -11,6 +11,13 @@
     max-width:100% !important;
   }
 
+  /* Critical fix: c3-body is a one-row grid. Explicitly size that row so
+     the child stage/view receives the full height when the parent uses dvh. */
+  .classroom-v3 .c3-body{
+    grid-template-rows:minmax(0, 1fr) !important;
+    height:auto !important;
+  }
+
   .classroom-v3 .c3-stage{
     width:100% !important;
     height:100% !important;
@@ -56,9 +63,6 @@
     min-height:1px !important;
   }
 
-  /* StPageFlip sometimes retains desktop dimensions after a touch viewport
-     resize. These limits prevent the generated wrapper from overflowing or
-     collapsing the visible stage. */
   .classroom-v3 .c3-book .stf__parent{
     max-width:100% !important;
     max-height:100% !important;
@@ -84,8 +88,6 @@
   .classroom-v3 .c3-book{max-width:100% !important;}
 }
 
-/* iOS/Android browsers can report a transient zero height during rotation.
-   Once the viewport is measurable, let the viewer occupy all available space. */
 @media (orientation:landscape) and (max-width:1100px){
   .classroom-v3 .c3-view{min-height:160px !important;}
 }
