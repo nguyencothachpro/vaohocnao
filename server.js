@@ -26,18 +26,42 @@ io.on('connection',socket=>{
  socket.on('classroom:note-unpublish',()=>{if(!socket.data.room||socket.data.role!=='teacher')return;publishedNotes.delete(socket.data.room);socket.to(`classroom:${socket.data.room}`).emit('classroom:note-unpublish')});
  socket.on('classroom:pointer',payload=>{if(!socket.data.room||socket.data.role!=='teacher')return;const p=payload||{};const page=Number(p.page);if(!Number.isFinite(page))return;const x=Math.max(0,Math.min(1,Number(p.x)||0)),y=Math.max(0,Math.min(1,Number(p.y)||0));socket.to(`classroom:${socket.data.room}`).emit('classroom:pointer',{page,x,y})});
  socket.on('classroom:material-open',payload=>{if(socket.data.room&&socket.data.role==='teacher'&&socket.data.roomStatus==='live')socket.to(`classroom:${socket.data.room}`).emit('classroom:material-open',payload)});
- socket.on('classroom:write-request',async()=>{if(!socket.data.room||socket.data.role!=='student'||!socket.data.studentId)return;const setting=(await db.query('SELECT ask_teacher_enabled FROM classroom_settings WHERE classroom_id=$1',[socket.data.roomId])).rows[0];if(setting&&!setting.ask_teacher_enabled)return;const s=(await db.query('SELECT display_name,can_write,status FROM classroom_students WHERE id=$1 AND classroom_id=$2',[socket.data.studentId,socket.data.roomId])).rows[0];if(!s||s.status!=='active'||s.can_write)return;io.to(`classroom:${socket.data.room}`).emit('classroom:write-request',{userId:socket.data.studentId,user:s.display_name})});
+ socket.on('classroom:write-request',async()=>{
+  if(!socket.data.room||socket.data.role!=='student'||!socket.data.studentId)return;
+  const setting=(await db.query('SELECT ask_teacher_enabled FROM classroom_settings WHERE classroom_id=$1',[socket.data.roomId])).rows[0];
+  if(setting&&setting.ask_teacher_enabled===false){socket.emit('classroom:write-request-denied',{reason:'disabled'});return}
+  const s=(await db.query('SELECT display_name,can_write,status FROM classroom_students WHERE id=$1 AND classroom_id=$2',[socket.data.studentId,socket.data.roomId])).rows[0];
+  if(!s||s.status!=='active'){socket.emit('classroom:write-request-denied',{reason:'inactive'});return}
+  if(s.can_write){socket.emit('classroom:write-request-denied',{reason:'already'});return}
+  io.to(`classroom:${socket.data.room}`).emit('classroom:write-request',{userId:socket.data.studentId,user:s.display_name});
+  socket.emit('classroom:write-request-sent');
+ });
  socket.on('classroom:write-grant',async({userId,allow})=>{if(socket.data.role!=='teacher'||!socket.data.roomId)return;const ok=Boolean(allow);const updated=(await db.query('UPDATE classroom_students SET can_write=$1 WHERE id=$2 AND classroom_id=$3 RETURNING id,can_write',[ok,Number(userId),socket.data.roomId])).rows[0];if(!updated)return;for(const [,s] of io.sockets.sockets){if(s.data.roomId===socket.data.roomId&&Number(s.data.studentId)===Number(updated.id)){s.data.canWrite=ok;s.emit('classroom:write-status',{userId:updated.id,allow:ok})}}});
  socket.on('classroom:write-revoke-all',async()=>{if(socket.data.role!=='teacher'||!socket.data.roomId)return;await db.query('UPDATE classroom_students SET can_write=false WHERE classroom_id=$1',[socket.data.roomId]);for(const [,s] of io.sockets.sockets){if(s.data.roomId===socket.data.roomId&&s.data.role==='student'){s.data.canWrite=false;s.emit('classroom:write-status',{userId:s.data.studentId,allow:false})}}});
  socket.on('classroom:chat',payload=>{if(!socket.data.room)return;const text=String(payload?.text??'').slice(0,500);if(!text.trim())return;io.to(`classroom:${socket.data.room}`).emit('classroom:chat',{user:socket.data.user||'Thành viên',text,at:Date.now(),studentId:socket.data.studentId||null,role:socket.data.role})});
  socket.on('classroom:view-sync-toggle',payload=>{if(!socket.data.room||socket.data.role!=='teacher')return;const on=!!payload?.on;syncActive.set(socket.data.room,on);if(!on)lastSnapshot.delete(socket.data.room);io.to(`classroom:${socket.data.room}`).emit('classroom:view-sync-toggle',{on})});
  socket.on('classroom:view-snapshot',payload=>{if(!socket.data.room||socket.data.role!=='teacher')return;const p=payload||{};const image=typeof p.image==='string'?p.image:'';if(!image||image.length>4000000)return;const pages=Array.isArray(p.pages)?p.pages.slice(0,4).map(x=>({index:Number(x.index)||0,pageX0:Number(x.pageX0)||0,pageY0:Number(x.pageY0)||0,pageX1:Number(x.pageX1)||1,pageY1:Number(x.pageY1)||1,compX0:Number(x.compX0)||0,compY0:Number(x.compY0)||0,compX1:Number(x.compX1)||1,compY1:Number(x.compY1)||1})):[];const state={image,page:Number(p.page)||0,pages,at:Date.now()};lastSnapshot.set(socket.data.room,state);socket.to(`classroom:${socket.data.room}`).emit('classroom:view-snapshot',state)});
- socket.on('webrtc:offer',({to,offer})=>{if(to)io.to(to).emit('webrtc:offer',{from:socket.id,offer})});
- socket.on('webrtc:answer',({to,answer})=>{if(to)io.to(to).emit('webrtc:answer',{from:socket.id,answer})});
- socket.on('webrtc:ice',({to,candidate})=>{if(to)io.to(to).emit('webrtc:ice',{from:socket.id,candidate})});
+ socket.on('webrtc:offer',({to,offer,kind})=>{if(to)io.to(to).emit('webrtc:offer',{from:socket.id,offer,kind})});
+ socket.on('webrtc:answer',({to,answer,kind})=>{if(to)io.to(to).emit('webrtc:answer',{from:socket.id,answer,kind})});
+ socket.on('webrtc:ice',({to,candidate,kind})=>{if(to)io.to(to).emit('webrtc:ice',{from:socket.id,candidate,kind})});
  socket.on('classroom:camera-on',()=>{if(socket.data.room&&socket.data.role==='teacher'){cameraActive.set(socket.data.room,true);socket.to(`classroom:${socket.data.room}`).emit('classroom:camera-on',{id:socket.id})}});
  socket.on('classroom:camera-off',()=>{if(socket.data.room&&socket.data.role==='teacher'){cameraActive.delete(socket.data.room);socket.to(`classroom:${socket.data.room}`).emit('classroom:camera-off')}});
  socket.on('classroom:camera-request',()=>{if(socket.data.room)socket.to(`classroom:${socket.data.room}`).emit('classroom:camera-request',{id:socket.id})});
+ socket.on('classroom:raise-hand',()=>{if(!socket.data.room||socket.data.role!=='student'||!socket.data.studentId)return;io.to(`classroom:${socket.data.room}`).emit('classroom:raise-hand',{userId:socket.data.studentId,user:socket.data.user})});
+ socket.on('classroom:mic-grant',({userId,allow})=>{
+  if(socket.data.role!=='teacher'||!socket.data.roomId)return;
+  const ok=Boolean(allow);let target=null;
+  for(const [,s] of io.sockets.sockets){if(s.data.roomId===socket.data.roomId&&Number(s.data.studentId)===Number(userId)){target=s;break}}
+  if(!target)return;
+  if(ok){
+    const peers=[];for(const [,s] of io.sockets.sockets){if(s.data.roomId===socket.data.roomId&&s.id!==target.id)peers.push(s.id)}
+    target.emit('classroom:mic-status',{allow:true,peers});
+    io.to(`classroom:${socket.data.room}`).emit('classroom:mic-speaking',{userId:Number(userId),user:target.data.user,speaking:true});
+  }else{
+    target.emit('classroom:mic-status',{allow:false});
+  }
+ });
+ socket.on('classroom:mic-stop',()=>{if(socket.data.room)io.to(`classroom:${socket.data.room}`).emit('classroom:mic-speaking',{userId:socket.data.studentId,speaking:false})});
  socket.on('disconnect',()=>{if(socket.data.room){if(socket.data.role==='teacher'&&cameraActive.get(socket.data.room)){cameraActive.delete(socket.data.room);socket.to(`classroom:${socket.data.room}`).emit('classroom:camera-off')}socket.to(`classroom:${socket.data.room}`).emit('classroom:peer-left',{id:socket.id});setTimeout(()=>emitPresence(socket.data.room),50)}})
 });
 httpServer.listen(PORT,()=>console.log(`>>> LMS dang chay tai http://localhost:${PORT}`));
