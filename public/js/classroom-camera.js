@@ -69,7 +69,14 @@ function makeResizable(pip){
   handle.addEventListener('pointercancel',end);
 }
 function showLocalCamera(stream){const pip=ensurePip();const v=pip.querySelector('video');v.muted=true;v.srcObject=stream;pip.style.display='block'}
-function showRemoteCamera(stream){const pip=ensurePip();const v=pip.querySelector('video');v.muted=false;v.srcObject=stream;pip.style.display=pipHiddenByStudent?'none':'block';v.play?.().catch(()=>{toast('Bấm vào màn hình một lần để nghe được âm thanh')});injectHideToggle(pip);injectRestoreBtn()}
+let soundUnlocked=false;
+function unlockSoundOnce(){
+  if(soundUnlocked)return;soundUnlocked=true;
+  document.querySelectorAll('#c3CameraPip video').forEach(v=>{v.muted=false;v.play?.().catch(()=>{})});
+}
+document.addEventListener('pointerdown',unlockSoundOnce,{once:true,capture:true});
+document.addEventListener('keydown',unlockSoundOnce,{once:true,capture:true});
+function showRemoteCamera(stream){const pip=ensurePip();const v=pip.querySelector('video');v.muted=!soundUnlocked;v.srcObject=stream;pip.style.display=pipHiddenByStudent?'none':'block';v.play?.().catch(()=>{v.muted=true;v.play?.().catch(()=>{})});injectHideToggle(pip);injectRestoreBtn()}
 function hidePip(){const pip=document.getElementById('c3CameraPip');if(pip){pip.style.display='none';const v=pip.querySelector('video');if(v)v.srcObject=null}removeRestoreBtn();pipHiddenByStudent=false}
 let pipHiddenByStudent=false;
 function injectHideToggle(pip){
