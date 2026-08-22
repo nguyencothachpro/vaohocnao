@@ -195,7 +195,7 @@ function injectTeacherButton(){
   b.onclick=async()=>{
     if(camOn){stopCamera();return}
     try{
-      rawStream=await navigator.mediaDevices.getUserMedia({video:{width:320,height:240},audio:{echoCancellation:true,noiseSuppression:true}});
+      rawStream=await navigator.mediaDevices.getUserMedia({video:{width:320,height:240},audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1,sampleRate:48000,sampleSize:16}});
     }catch(err){toast('Không mở được camera — kiểm tra quyền truy cập trình duyệt');return}
     camOn=true;
     b.innerHTML='⏹ Tắt camera';b.classList.add('active');
@@ -227,12 +227,20 @@ function stopCamera(){
   socket?.emit('classroom:camera-off');
   toast('Đã tắt camera');
 }
+async function boostAudioBitrate(sender){
+  try{
+    const params=sender.getParameters();
+    if(!params.encodings||!params.encodings.length)params.encodings=[{}];
+    params.encodings[0].maxBitrate=128000;
+    await sender.setParameters(params);
+  }catch(err){console.error(err)}
+}
 async function createPeerForStudent(studentId){
   if(!rawStream||!studentId)return;
   if(peers.has(studentId)){try{peers.get(studentId).close()}catch(_){}}
   const pc=new RTCPeerConnection(RTC_CONFIG);
   peers.set(studentId,pc);
-  outgoingStream().getTracks().forEach(t=>pc.addTrack(t,rawStream));
+  outgoingStream().getTracks().forEach(t=>{const sender=pc.addTrack(t,rawStream);if(t.kind==='audio')boostAudioBitrate(sender)});
   pc.onicecandidate=e=>{if(e.candidate)socket?.emit('webrtc:ice',{to:studentId,candidate:e.candidate,kind:'camera'})};
   try{const offer=await pc.createOffer();await pc.setLocalDescription(offer);socket?.emit('webrtc:offer',{to:studentId,offer,kind:'camera'})}catch(err){console.error(err)}
 }

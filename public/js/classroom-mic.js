@@ -50,7 +50,7 @@ async function startSpeaking(peerIds){
   amISpeaking=true;
   showSpeaking('Bạn đang nói — cả lớp nghe được');
   ensureStopButton();
-  try{micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}
+  try{micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1,sampleRate:48000,sampleSize:16}})}
   catch(err){
     toast('Không mở được micro — kiểm tra quyền truy cập trình duyệt');
     amISpeaking=false;hideSpeaking();hideStopButton();
@@ -60,12 +60,20 @@ async function startSpeaking(peerIds){
   micOn=true;
   for(const id of peerIds||[])connectOut(id);
 }
+async function boostAudioBitrate(sender){
+  try{
+    const params=sender.getParameters();
+    if(!params.encodings||!params.encodings.length)params.encodings=[{}];
+    params.encodings[0].maxBitrate=128000;
+    await sender.setParameters(params);
+  }catch(err){console.error(err)}
+}
 async function connectOut(peerId){
   if(!micStream||!peerId)return;
   if(outgoingPeers.has(peerId)){try{outgoingPeers.get(peerId).close()}catch(_){}}
   const pc=new RTCPeerConnection(RTC_CONFIG);
   outgoingPeers.set(peerId,pc);
-  micStream.getTracks().forEach(t=>pc.addTrack(t,micStream));
+  micStream.getTracks().forEach(t=>{const sender=pc.addTrack(t,micStream);if(t.kind==='audio')boostAudioBitrate(sender)});
   pc.onicecandidate=e=>{if(e.candidate)socket?.emit('webrtc:ice',{to:peerId,candidate:e.candidate,kind:'mic'})};
   try{
     const offer=await pc.createOffer();
