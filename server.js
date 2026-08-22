@@ -62,6 +62,6 @@ io.on('connection',socket=>{
   }
  });
  socket.on('classroom:mic-stop',()=>{if(socket.data.room)io.to(`classroom:${socket.data.room}`).emit('classroom:mic-speaking',{userId:socket.data.studentId,speaking:false})});
- socket.on('disconnect',()=>{if(socket.data.room){if(socket.data.role==='teacher'&&cameraActive.get(socket.data.room)){cameraActive.delete(socket.data.room);socket.to(`classroom:${socket.data.room}`).emit('classroom:camera-off')}socket.to(`classroom:${socket.data.room}`).emit('classroom:peer-left',{id:socket.id});setTimeout(()=>emitPresence(socket.data.room),50)}})
+ socket.on('disconnect',()=>{if(socket.data.room){if(socket.data.role==='teacher'){if(cameraActive.get(socket.data.room)){cameraActive.delete(socket.data.room);socket.to(`classroom:${socket.data.room}`).emit('classroom:camera-off')}if(syncActive.get(socket.data.room)){syncActive.delete(socket.data.room);lastSnapshot.delete(socket.data.room);socket.to(`classroom:${socket.data.room}`).emit('classroom:view-sync-toggle',{on:false})}}socket.to(`classroom:${socket.data.room}`).emit('classroom:peer-left',{id:socket.id});setTimeout(()=>emitPresence(socket.data.room),50)}})
 });
 httpServer.listen(PORT,()=>console.log(`>>> LMS dang chay tai http://localhost:${PORT}`));
